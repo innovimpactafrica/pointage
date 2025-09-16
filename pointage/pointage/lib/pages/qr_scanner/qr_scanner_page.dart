@@ -65,10 +65,18 @@ class _QRScannerPageState extends State<QRScannerPage> {
   }
 
   Future<void> _handleQRCode(String qrCode) async {
+    print('🚀 [QRScanner] ===== DÉBUT DU SCAN QR CODE =====');
+    print('🔍 [QRScanner] Code QR scanné: "$qrCode"');
+    print('🔍 [QRScanner] Longueur du code: ${qrCode.length}');
+    print('🔍 [QRScanner] Type du code: ${qrCode.runtimeType}');
+
     if (_currentUser == null) {
+      print('❌ [QRScanner] ERREUR: Utilisateur non trouvé');
       _showError('Utilisateur non trouvé');
       return;
     }
+
+    print('✅ [QRScanner] Utilisateur trouvé: ID=${_currentUser!.id}');
 
     setState(() {
       isLoading = true;
@@ -76,66 +84,143 @@ class _QRScannerPageState extends State<QRScannerPage> {
     });
 
     try {
-      print('🔍 [QRScanner] Code scanné: "$qrCode"');
+      print('📍 [QRScanner] Récupération de la position GPS...');
 
       // Récupérer la position GPS
       final position = await _getCurrentPosition();
 
       if (position == null) {
+        print('❌ [QRScanner] ERREUR: Impossible de récupérer la position GPS');
         _showError('Impossible de récupérer votre position GPS');
         return;
       }
 
+      print('✅ [QRScanner] Position GPS récupérée:');
+      print('   📍 Latitude: ${position.latitude}');
+      print('   📍 Longitude: ${position.longitude}');
+      print('   📍 Précision: ${position.accuracy}m');
+      print('   📍 Timestamp: ${position.timestamp}');
+
+      print('🔄 [QRScanner] Préparation de l\'appel API...');
+      print('   👤 User ID: ${_currentUser!.id}');
+      print('   📱 QR Code: $qrCode');
+      print('   📍 Latitude: ${position.latitude}');
+      print('   📍 Longitude: ${position.longitude}');
+
+      // Déterminer le type de pointage (entrée ou sortie)
+      print('🔍 [QRScanner] Détermination du type de pointage...');
+      final statutPointage = await _pointageService.getStatutPointageDuJour(
+        _currentUser!.id,
+      );
+      final typePointage =
+          statutPointage['peutArrivee']
+              ? PointageConstants.ARRIVEE
+              : PointageConstants.DEPART;
+      final typePointageText =
+          statutPointage['peutArrivee'] ? 'Entrée' : 'Sortie';
+
+      print('📋 [QRScanner] Type de pointage déterminé: $typePointageText');
       print(
-        '📍 [QRScanner] Position GPS: ${position.latitude}, ${position.longitude}',
+        '📋 [QRScanner] Peut pointer arrivée: ${statutPointage['peutArrivee']}',
+      );
+      print(
+        '📋 [QRScanner] Peut pointer départ: ${statutPointage['peutDepart']}',
       );
 
       // Effectuer le pointage avec le QR code scanné
+      print('🌐 [QRScanner] Appel de l\'API de pointage...');
       final result = await _pointageService.enregistrerPointage(
         userId: _currentUser!.id,
-        typePointage: PointageConstants.ARRIVEE,
+        typePointage: typePointage,
         latitude: position.latitude,
         longitude: position.longitude,
         qrCodeText: qrCode, // Utiliser le QR code scanné directement
         commentaire: 'Pointage via QR Code: $qrCode',
       );
 
+      print('📥 [QRScanner] Réponse de l\'API reçue:');
+      print('   ✅ Success: ${result['success']}');
+      print('   📝 Message: ${result['message']}');
+      print('   📊 Data: ${result['data']}');
+
       if (result['success']) {
-        _showSuccess('Pointage effectué avec succès !');
+        print(
+          '🎉 [QRScanner] SUCCÈS: $typePointageText effectuée avec succès !',
+        );
+        _showSuccess('$typePointageText effectuée avec succès !');
       } else {
+        print(
+          '❌ [QRScanner] ÉCHEC: ${result['message'] ?? 'Erreur lors du pointage'}',
+        );
         _showError(result['message'] ?? 'Erreur lors du pointage');
       }
     } catch (e) {
+      print('💥 [QRScanner] EXCEPTION: ${e.toString()}');
+      print('💥 [QRScanner] Stack trace: ${StackTrace.current}');
       _showError('Erreur: ${e.toString()}');
     } finally {
       setState(() {
         isLoading = false;
       });
+      print('🏁 [QRScanner] ===== FIN DU SCAN QR CODE =====');
     }
   }
 
   /// Récupérer la position GPS
   Future<Position?> _getCurrentPosition() async {
     try {
+      print('📍 [GPS] Vérification des permissions de localisation...');
+
       // Vérifier les permissions
       LocationPermission permission = await Geolocator.checkPermission();
+      print('📍 [GPS] Permission actuelle: $permission');
+
       if (permission == LocationPermission.denied) {
+        print('📍 [GPS] Permission refusée, demande d\'autorisation...');
         permission = await Geolocator.requestPermission();
+        print('📍 [GPS] Nouvelle permission: $permission');
+
         if (permission == LocationPermission.denied) {
+          print('❌ [GPS] Permission définitivement refusée');
           return null;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
+        print('❌ [GPS] Permission définitivement refusée pour toujours');
         return null;
       }
 
+      print('✅ [GPS] Permission accordée, récupération de la position...');
+      print('📍 [GPS] Précision demandée: LocationAccuracy.high');
+
       // Récupérer la position
-      return await Geolocator.getCurrentPosition(
+      final position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
+        timeLimit: Duration(seconds: 15), // Timeout de 15 secondes
       );
+
+      print('✅ [GPS] Position récupérée avec succès:');
+      print('   📍 Latitude: ${position.latitude}');
+      print('   📍 Longitude: ${position.longitude}');
+      print('   📍 Précision: ${position.accuracy}m');
+      print('   📍 Altitude: ${position.altitude}m');
+      print('   📍 Vitesse: ${position.speed}m/s');
+      print('   📍 Timestamp: ${position.timestamp}');
+
+      return position;
     } catch (e) {
-      print('❌ Erreur GPS: $e');
+      print('💥 [GPS] EXCEPTION lors de la récupération de la position: $e');
+      print('💥 [GPS] Type d\'erreur: ${e.runtimeType}');
+
+      if (e.toString().contains('LocationServiceDisabledException')) {
+        print('📍 [GPS] Service de localisation désactivé');
+      } else if (e.toString().contains('PermissionDeniedException')) {
+        print('📍 [GPS] Permission de localisation refusée');
+      } else if (e.toString().contains('TimeoutException')) {
+        print('📍 [GPS] Timeout lors de la récupération de la position');
+      }
+
       return null;
     }
   }

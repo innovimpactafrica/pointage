@@ -1,5 +1,6 @@
 import 'package:geolocator/geolocator.dart';
 import '../models/PointageModel.dart';
+import '../utils/constants.dart';
 import 'api_service.dart';
 
 /// Service de gestion du pointage pour les ouvriers
@@ -24,9 +25,13 @@ class PointageService {
     String? qrCodeText, // Nouveau paramètre pour le QR code
   }) async {
     try {
-      print(
-        '⏰ [PointageService] Enregistrement pointage: $typePointage pour user $userId',
-      );
+      print('🚀 [PointageService] ===== DÉBUT ENREGISTREMENT POINTAGE =====');
+      print('⏰ [PointageService] Type de pointage: $typePointage');
+      print('👤 [PointageService] User ID: $userId');
+      print('📱 [PointageService] QR Code: $qrCodeText');
+      print('📍 [PointageService] Latitude: $latitude');
+      print('📍 [PointageService] Longitude: $longitude');
+      print('💬 [PointageService] Commentaire: $commentaire');
 
       // Construire les paramètres de requête
       final queryParams = <String, dynamic>{};
@@ -34,21 +39,34 @@ class PointageService {
       // Ajouter le QR code si fourni
       if (qrCodeText != null && qrCodeText.isNotEmpty) {
         queryParams['qrCodeText'] = qrCodeText;
+        print('✅ [PointageService] QR Code ajouté aux paramètres');
+      } else {
+        print('⚠️ [PointageService] Aucun QR Code fourni');
       }
 
       // Ajouter les coordonnées GPS si fournies
       if (latitude != null) {
         queryParams['latitude'] = latitude.toString();
+        print('✅ [PointageService] Latitude ajoutée: $latitude');
+      } else {
+        print('⚠️ [PointageService] Aucune latitude fournie');
       }
+
       if (longitude != null) {
         queryParams['longitude'] = longitude.toString();
+        print('✅ [PointageService] Longitude ajoutée: $longitude');
+      } else {
+        print('⚠️ [PointageService] Aucune longitude fournie');
       }
 
       // Utiliser le nouvel endpoint /check
       final endpoint = '/workers/$userId/check';
+      final fullUrl = '${PointageConstants.BASE_URL}$endpoint';
 
+      print('🌐 [PointageService] URL complète: $fullUrl');
       print('🔍 [PointageService] Endpoint: $endpoint');
-      print('🔍 [PointageService] Query params: $queryParams');
+      print('📋 [PointageService] Paramètres de requête: $queryParams');
+      print('📤 [PointageService] Envoi de la requête POST...');
 
       final response = await _apiService.dio.post(
         endpoint,
@@ -56,8 +74,17 @@ class PointageService {
         data: '', // Body vide comme dans l'exemple curl
       );
 
+      print('📥 [PointageService] Réponse reçue:');
+      print('   📊 Status Code: ${response.statusCode}');
+      print('   📝 Headers: ${response.headers}');
+      print('   📄 Data: ${response.data}');
+      print('   🔗 Real URL: ${response.realUri}');
+
       if (response.statusCode == 200 || response.statusCode == 201) {
         print('✅ [PointageService] Pointage enregistré avec succès');
+        print(
+          '🏁 [PointageService] ===== FIN ENREGISTREMENT POINTAGE (SUCCÈS) =====',
+        );
         return {
           'success': true,
           'message': 'Check-in enregistré avec succès',
@@ -67,11 +94,28 @@ class PointageService {
         print(
           '❌ [PointageService] Erreur lors de l\'enregistrement: ${response.statusCode}',
         );
+        print(
+          '🏁 [PointageService] ===== FIN ENREGISTREMENT POINTAGE (ÉCHEC) =====',
+        );
         return {'success': false, 'message': 'Erreur lors du pointage'};
       }
     } catch (e) {
-      print('❌ [PointageService] Exception lors de l\'enregistrement: $e');
-      return {'success': false, 'message': 'Erreur lors du pointage'};
+      print('💥 [PointageService] EXCEPTION lors de l\'enregistrement: $e');
+      print('💥 [PointageService] Type d\'erreur: ${e.runtimeType}');
+      if (e.toString().contains('SocketException')) {
+        print('🌐 [PointageService] Problème de connexion réseau');
+      } else if (e.toString().contains('TimeoutException')) {
+        print('⏰ [PointageService] Timeout de la requête');
+      } else if (e.toString().contains('FormatException')) {
+        print('📝 [PointageService] Erreur de format de données');
+      }
+      print(
+        '🏁 [PointageService] ===== FIN ENREGISTREMENT POINTAGE (EXCEPTION) =====',
+      );
+      return {
+        'success': false,
+        'message': 'Erreur lors du pointage: ${e.toString()}',
+      };
     }
   }
 
@@ -117,7 +161,7 @@ class PointageService {
     }
   }
 
-  /// Récupérer le pointage du jour pour un utilisateur
+  /// Récupérer le pointage du jour pour un utilisateur (premier seulement - pour compatibilité)
   Future<PointageModel?> getPointageDuJour(int userId) async {
     try {
       print(
@@ -171,6 +215,77 @@ class PointageService {
         '❌ [PointageService] Exception lors de la récupération du pointage du jour: $e',
       );
       return null;
+    }
+  }
+
+  /// Récupérer TOUS les pointages du jour pour un utilisateur
+  Future<List<PointageModel>> getTousPointagesDuJour(int userId) async {
+    try {
+      print(
+        '📅 [PointageService] Récupération TOUS les pointages du jour pour user $userId',
+      );
+
+      final response = await _apiService.dio.get(
+        '/workers/$userId/presence-history',
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final Map<String, dynamic> data = response.data;
+        final List<dynamic> logs = data['logs'] ?? [];
+
+        print('📊 [PointageService] Total logs reçus: ${logs.length}');
+
+        // Filtrer les logs d'aujourd'hui
+        final today = DateTime.now();
+        final todayLogs =
+            logs.where((log) {
+              if (log['checkInTime'] != null &&
+                  (log['checkInTime'] as List).isNotEmpty) {
+                final checkInList = List<int>.from(log['checkInTime']);
+                if (checkInList.length >= 3) {
+                  final checkInDate = DateTime(
+                    today.year,
+                    today.month,
+                    today.day,
+                    checkInList[0],
+                    checkInList[1],
+                    checkInList[2],
+                  );
+                  return checkInDate.year == today.year &&
+                      checkInDate.month == today.month &&
+                      checkInDate.day == today.day;
+                }
+              }
+              return false;
+            }).toList();
+
+        print(
+          '📅 [PointageService] Logs d\'aujourd\'hui trouvés: ${todayLogs.length}',
+        );
+
+        if (todayLogs.isNotEmpty) {
+          final List<PointageModel> pointages =
+              todayLogs.map((log) {
+                return PointageModel.fromPresenceHistory(
+                  Map<String, dynamic>.from(log),
+                  userId,
+                );
+              }).toList();
+
+          print(
+            '✅ [PointageService] ${pointages.length} pointages d\'aujourd\'hui récupérés',
+          );
+          return pointages;
+        }
+      }
+
+      print('ℹ️ [PointageService] Aucun pointage trouvé pour aujourd\'hui');
+      return [];
+    } catch (e) {
+      print(
+        '❌ [PointageService] Exception lors de la récupération des pointages du jour: $e',
+      );
+      return [];
     }
   }
 
@@ -396,5 +511,93 @@ class PointageService {
       latitude: latitude,
       longitude: longitude,
     );
+  }
+
+  /// Récupérer les adresses de pointage pour un projet
+  Future<List<Map<String, dynamic>>> getAdressesPointage(int projectId) async {
+    try {
+      print(
+        '🏢 [PointageService] Récupération des adresses pour le projet $projectId',
+      );
+
+      final response = await _apiService.dio.get(
+        '/pointing-addresses/property/$projectId',
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> adresses = response.data;
+        final List<Map<String, dynamic>> adressesList =
+            adresses.map((adresse) {
+              return Map<String, dynamic>.from(adresse);
+            }).toList();
+
+        print('✅ [PointageService] ${adressesList.length} adresses récupérées');
+        return adressesList;
+      } else {
+        print(
+          '❌ [PointageService] Erreur lors de la récupération des adresses: ${response.statusCode}',
+        );
+        return [];
+      }
+    } catch (e) {
+      print(
+        '❌ [PointageService] Exception lors de la récupération des adresses: $e',
+      );
+      return [];
+    }
+  }
+
+  /// Créer une nouvelle adresse de pointage
+  Future<Map<String, dynamic>> creerAdressePointage({
+    required double latitude,
+    required double longitude,
+    required String name,
+    required String qrcode,
+  }) async {
+    try {
+      print('🏗️ [PointageService] Création d\'une nouvelle adresse...');
+      print('   📍 Latitude: $latitude');
+      print('   📍 Longitude: $longitude');
+      print('   📝 Nom: $name');
+      print('   📱 QR Code: $qrcode');
+
+      final response = await _apiService.dio.post(
+        '/pointing-addresses',
+        data: {
+          'latitude': latitude,
+          'longitude': longitude,
+          'name': name,
+          'qrcode': qrcode,
+        },
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final Map<String, dynamic> nouvelleAdresse = Map<String, dynamic>.from(
+          response.data,
+        );
+        print(
+          '✅ [PointageService] Adresse créée avec succès: ID ${nouvelleAdresse['id']}',
+        );
+        return {
+          'success': true,
+          'message': 'Adresse créée avec succès',
+          'data': nouvelleAdresse,
+        };
+      } else {
+        print(
+          '❌ [PointageService] Erreur lors de la création: ${response.statusCode}',
+        );
+        return {
+          'success': false,
+          'message': 'Erreur lors de la création de l\'adresse',
+        };
+      }
+    } catch (e) {
+      print('❌ [PointageService] Exception lors de la création: $e');
+      return {
+        'success': false,
+        'message': 'Erreur lors de la création de l\'adresse: ${e.toString()}',
+      };
+    }
   }
 }

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../services/AuthService.dart';
 import '../../models/UserModel.dart';
+import '../../models/PointageModel.dart';
 import '../../services/PointageService.dart';
 // import '../../utils/constants.dart';
 import '../qr_scanner/qr_scanner_page.dart';
+import '../addresses/add_address_page.dart';
 
 class ModernPointagePage extends StatefulWidget {
   const ModernPointagePage({Key? key}) : super(key: key);
@@ -18,6 +20,12 @@ class _ModernPointagePageState extends State<ModernPointagePage> {
   void _goToHistorique() {
     setState(() {
       _selectedTab = 1;
+    });
+  }
+
+  void _goToAdresses() {
+    setState(() {
+      _selectedTab = 2;
     });
   }
 
@@ -36,7 +44,9 @@ class _ModernPointagePageState extends State<ModernPointagePage> {
             child:
                 _selectedTab == 0
                     ? _PointageDuJourCard(onVoirPlus: _goToHistorique)
-                    : const _HistoriqueTab(),
+                    : _selectedTab == 1
+                    ? const _HistoriqueTab()
+                    : const _AdressesTab(),
           ),
         ],
       ),
@@ -78,7 +88,7 @@ class _PointageHeaderTabs extends StatelessWidget {
           ),
           Row(
             children: [
-              Expanded(
+              Flexible(
                 child: GestureDetector(
                   onTap: () => onChanged(0),
                   child: Column(
@@ -93,18 +103,18 @@ class _PointageHeaderTabs extends StatelessWidget {
                                 selected == 0
                                     ? Colors.white
                                     : const Color(0xFFBFC5D2),
-                            size: 22,
+                            size: 18,
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 4),
                           Text(
-                            'Pointage du jour',
+                            'Pointage',
                             style: TextStyle(
                               color:
                                   selected == 0
                                       ? Colors.white
                                       : const Color(0xFFBFC5D2),
                               fontWeight: FontWeight.bold,
-                              fontSize: 17,
+                              fontSize: 14,
                             ),
                           ),
                         ],
@@ -113,7 +123,7 @@ class _PointageHeaderTabs extends StatelessWidget {
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
                         height: 4,
-                        width: 60,
+                        width: 40,
                         decoration: BoxDecoration(
                           color:
                               selected == 0 ? Colors.white : Colors.transparent,
@@ -124,7 +134,7 @@ class _PointageHeaderTabs extends StatelessWidget {
                   ),
                 ),
               ),
-              Expanded(
+              Flexible(
                 child: GestureDetector(
                   onTap: () => onChanged(1),
                   child: Column(
@@ -139,18 +149,18 @@ class _PointageHeaderTabs extends StatelessWidget {
                                 selected == 1
                                     ? Colors.white
                                     : const Color(0xFFBFC5D2),
-                            size: 22,
+                            size: 18,
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 4),
                           Text(
-                            'Historiques',
+                            'Historique',
                             style: TextStyle(
                               color:
                                   selected == 1
                                       ? Colors.white
                                       : const Color(0xFFBFC5D2),
                               fontWeight: FontWeight.bold,
-                              fontSize: 17,
+                              fontSize: 14,
                             ),
                           ),
                         ],
@@ -159,10 +169,56 @@ class _PointageHeaderTabs extends StatelessWidget {
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
                         height: 4,
-                        width: 60,
+                        width: 40,
                         decoration: BoxDecoration(
                           color:
                               selected == 1 ? Colors.white : Colors.transparent,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Flexible(
+                child: GestureDetector(
+                  onTap: () => onChanged(2),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.location_on,
+                            color:
+                                selected == 2
+                                    ? Colors.white
+                                    : const Color(0xFFBFC5D2),
+                            size: 22,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Adresses',
+                            style: TextStyle(
+                              color:
+                                  selected == 2
+                                      ? Colors.white
+                                      : const Color(0xFFBFC5D2),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        height: 4,
+                        width: 40,
+                        decoration: BoxDecoration(
+                          color:
+                              selected == 2 ? Colors.white : Colors.transparent,
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
@@ -195,6 +251,8 @@ class _PointageDuJourCardState extends State<_PointageDuJourCard> {
   String _lastPointageTime = '--:--';
   String _totalWorkedTime = '0h 00min';
   String _checkOutTime = '--:--';
+  List<PointageModel> _todayPointages =
+      []; // Nouvelle variable pour stocker tous les pointages d'aujourd'hui
 
   @override
   void initState() {
@@ -228,46 +286,85 @@ class _PointageDuJourCardState extends State<_PointageDuJourCard> {
     if (_currentUser == null) return;
 
     try {
-      // Récupérer l'historique complet
-      final historique = await _pointageService.getHistoriquePointage(
-        userId: _currentUser!.id,
+      print('🔄 [PointagePage] Chargement des pointages d\'aujourd\'hui...');
+
+      // Utiliser la nouvelle méthode pour récupérer TOUS les pointages d'aujourd'hui
+      final todayPointages = await _pointageService.getTousPointagesDuJour(
+        _currentUser!.id,
       );
 
-      if (historique.isNotEmpty) {
-        // Trouver le pointage d'aujourd'hui
-        final today = DateTime.now();
-        final todayPointage =
-            historique.where((pointage) {
-              return pointage.datePointage.year == today.year &&
-                  pointage.datePointage.month == today.month &&
-                  pointage.datePointage.day == today.day;
-            }).toList();
+      print(
+        '📊 [PointagePage] ${todayPointages.length} pointages d\'aujourd\'hui récupérés',
+      );
 
-        if (todayPointage.isNotEmpty) {
-          final pointage = todayPointage.first;
-          setState(() {
-            // Formater l'heure d'arrivée
-            if (pointage.heureArrivee != null) {
-              _lastPointageTime =
-                  '${pointage.heureArrivee!.hour.toString().padLeft(2, '0')}:${pointage.heureArrivee!.minute.toString().padLeft(2, '0')}';
-            }
+      if (todayPointages.isNotEmpty) {
+        setState(() {
+          _todayPointages = todayPointages;
 
-            // Formater l'heure de départ
-            if (pointage.heureDepart != null) {
-              _checkOutTime =
-                  '${pointage.heureDepart!.hour.toString().padLeft(2, '0')}:${pointage.heureDepart!.minute.toString().padLeft(2, '0')}';
-            }
+          // Prendre le premier pointage pour l'affichage principal (compatibilité)
+          final firstPointage = todayPointages.first;
 
-            // Calculer le temps total travaillé
-            if (pointage.dureeTravail != null) {
-              _totalWorkedTime = pointage.dureeTravailFormatee;
-            }
-          });
-        }
+          // Formater l'heure d'arrivée
+          if (firstPointage.heureArrivee != null) {
+            _lastPointageTime =
+                '${firstPointage.heureArrivee!.hour.toString().padLeft(2, '0')}:${firstPointage.heureArrivee!.minute.toString().padLeft(2, '0')}';
+          }
+
+          // Formater l'heure de départ (prendre le dernier départ s'il y en a un)
+          final lastPointage = todayPointages.last;
+          if (lastPointage.heureDepart != null) {
+            _checkOutTime =
+                '${lastPointage.heureDepart!.hour.toString().padLeft(2, '0')}:${lastPointage.heureDepart!.minute.toString().padLeft(2, '0')}';
+          }
+
+          // Calculer le temps total travaillé de TOUTES les sessions
+          _totalWorkedTime = _calculateTotalWorkedTime(todayPointages);
+        });
+      } else {
+        setState(() {
+          _todayPointages = [];
+          _lastPointageTime = '--:--';
+          _checkOutTime = '--:--';
+          _totalWorkedTime = '0h 00min';
+        });
       }
     } catch (e) {
       print('❌ Erreur lors du chargement du pointage: $e');
     }
+  }
+
+  /// Calcule le temps total travaillé de toutes les sessions d'aujourd'hui
+  String _calculateTotalWorkedTime(List<PointageModel> pointages) {
+    if (pointages.isEmpty) return '0h 00min';
+
+    int totalMinutes = 0;
+
+    for (final pointage in pointages) {
+      if (pointage.heureArrivee != null && pointage.heureDepart != null) {
+        // Calculer la durée de cette session
+        final arrivee = pointage.heureArrivee!;
+        final depart = pointage.heureDepart!;
+
+        // Calculer la différence en minutes
+        final difference = depart.difference(arrivee);
+        totalMinutes += difference.inMinutes;
+
+        print(
+          '⏱️ [PointagePage] Session: ${arrivee.hour}:${arrivee.minute.toString().padLeft(2, '0')} - ${depart.hour}:${depart.minute.toString().padLeft(2, '0')} = ${difference.inMinutes}min',
+        );
+      }
+    }
+
+    // Convertir en heures et minutes
+    final hours = totalMinutes ~/ 60;
+    final minutes = totalMinutes % 60;
+
+    final result = '${hours}h ${minutes.toString().padLeft(2, '0')}min';
+    print(
+      '⏱️ [PointagePage] Temps total calculé: $result (${totalMinutes} minutes)',
+    );
+
+    return result;
   }
 
   @override
@@ -432,7 +529,7 @@ class _PointageDuJourCardState extends State<_PointageDuJourCard> {
                           ),
                         ),
                         const SizedBox(height: 14),
-                        if (_lastPointageTime == '--:--')
+                        if (_todayPointages.isEmpty)
                           const Text(
                             'Pas encore de pointage aujourd\'hui',
                             style: TextStyle(
@@ -442,9 +539,27 @@ class _PointageDuJourCardState extends State<_PointageDuJourCard> {
                             ),
                           )
                         else
-                          _SessionCard(
-                            entree: _lastPointageTime,
-                            sortie: _checkOutTime,
+                          Column(
+                            children:
+                                _todayPointages.asMap().entries.map((entry) {
+                                  final index = entry.key;
+                                  final pointage = entry.value;
+                                  return Column(
+                                    children: [
+                                      if (index > 0) const SizedBox(height: 12),
+                                      _SessionCard(
+                                        entree:
+                                            pointage.heureArrivee != null
+                                                ? '${pointage.heureArrivee!.hour.toString().padLeft(2, '0')}:${pointage.heureArrivee!.minute.toString().padLeft(2, '0')}'
+                                                : '--:--',
+                                        sortie:
+                                            pointage.heureDepart != null
+                                                ? '${pointage.heureDepart!.hour.toString().padLeft(2, '0')}:${pointage.heureDepart!.minute.toString().padLeft(2, '0')}'
+                                                : '--:--',
+                                      ),
+                                    ],
+                                  );
+                                }).toList(),
                           ),
                         const SizedBox(height: 10),
                         Row(
@@ -497,8 +612,9 @@ class _PointageDuJourCardState extends State<_PointageDuJourCard> {
 class _SessionCard extends StatelessWidget {
   final String? entree;
   final String? sortie;
+  final String? sessionNumber;
 
-  const _SessionCard({this.entree, this.sortie});
+  const _SessionCard({this.entree, this.sortie, this.sessionNumber});
 
   @override
   Widget build(BuildContext context) {
@@ -516,6 +632,18 @@ class _SessionCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Numéro de session si multiple
+                if (sessionNumber != null) ...[
+                  Text(
+                    sessionNumber!,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFFF5C02),
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                ],
                 Row(
                   children: [
                     const Icon(Icons.login, size: 20, color: Color(0xFF4CAF50)),
@@ -710,5 +838,290 @@ class _HistoriqueTab extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _AdressesTab extends StatefulWidget {
+  const _AdressesTab();
+
+  @override
+  State<_AdressesTab> createState() => _AdressesTabState();
+}
+
+class _AdressesTabState extends State<_AdressesTab> {
+  final _pointageService = PointageService();
+  List<Map<String, dynamic>> _adresses = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAdresses();
+  }
+
+  Future<void> _loadAdresses() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      print('🔄 [AdressesTab] Chargement des adresses depuis l\'API...');
+
+      // Utiliser l'ID du projet 22 (vous pouvez le rendre dynamique plus tard)
+      const int projectId = 22;
+      final adressesApi = await _pointageService.getAdressesPointage(projectId);
+
+      // Transformer les données de l'API pour correspondre à notre format d'affichage
+      _adresses =
+          adressesApi.map((adresse) {
+            return {
+              'id': adresse['id'],
+              'nom': adresse['name'],
+              'latitude': adresse['latitude'],
+              'longitude': adresse['longitude'],
+              'type': _determinerTypeAdresse(adresse['name']),
+              'isActive': true, // Par défaut, toutes les adresses sont actives
+            };
+          }).toList();
+
+      print(
+        '✅ [AdressesTab] ${_adresses.length} adresses chargées depuis l\'API',
+      );
+    } catch (e) {
+      print('❌ [AdressesTab] Erreur lors du chargement des adresses: $e');
+      // En cas d'erreur, utiliser des données d'exemple
+      _adresses = [
+        {
+          'id': 1,
+          'nom': 'Adresse par défaut',
+          'latitude': 14.69705,
+          'longitude': -17.46050,
+          'type': 'Bureau',
+          'isActive': true,
+        },
+      ];
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  /// Détermine le type d'adresse basé sur le nom
+  String _determinerTypeAdresse(String nom) {
+    final nomLower = nom.toLowerCase();
+    if (nomLower.contains('chantier') || nomLower.contains('construction')) {
+      return 'Chantier';
+    } else if (nomLower.contains('entrepôt') || nomLower.contains('stockage')) {
+      return 'Entrepôt';
+    } else if (nomLower.contains('bureau') || nomLower.contains('siège')) {
+      return 'Bureau';
+    } else {
+      return 'Bureau'; // Par défaut
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF5C02)),
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Adresses de pointage',
+            style: TextStyle(
+              color: Color(0xFF1A365D),
+              fontWeight: FontWeight.bold,
+              fontSize: 24,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Gérez vos adresses de pointage et lieux de travail',
+            style: TextStyle(color: Color(0xFF8A98A8), fontSize: 16),
+          ),
+          const SizedBox(height: 24),
+
+          // Liste des adresses
+          ..._adresses.map((adresse) => _buildAdresseCard(adresse)).toList(),
+
+          const SizedBox(height: 24),
+
+          // Bouton d'ajout
+          Center(
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                final result = await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const AddAddressPage(),
+                  ),
+                );
+
+                // Recharger les adresses si une nouvelle a été créée
+                if (result == true) {
+                  _loadAdresses();
+                }
+              },
+              icon: const Icon(Icons.add_location, color: Colors.white),
+              label: const Text(
+                'Ajouter une adresse',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFF5C02),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 2,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAdresseCard(Map<String, dynamic> adresse) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: _getTypeColor(adresse['type']).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  _getTypeIcon(adresse['type']),
+                  color: _getTypeColor(adresse['type']),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      adresse['nom'],
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: Color(0xFF1A365D),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      adresse['type'],
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _getTypeColor(adresse['type']),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color:
+                      adresse['isActive']
+                          ? const Color(0xFF4CAF50).withOpacity(0.1)
+                          : const Color(0xFFE74C3C).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  adresse['isActive'] ? 'Actif' : 'Inactif',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color:
+                        adresse['isActive']
+                            ? const Color(0xFF4CAF50)
+                            : const Color(0xFFE74C3C),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          Row(
+            children: [
+              const Icon(Icons.gps_fixed, size: 16, color: Color(0xFF8A98A8)),
+              const SizedBox(width: 8),
+              Text(
+                '${adresse['latitude'].toStringAsFixed(6)}, ${adresse['longitude'].toStringAsFixed(6)}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF8A98A8),
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getTypeColor(String type) {
+    switch (type.toLowerCase()) {
+      case 'bureau':
+        return const Color(0xFF2196F3);
+      case 'chantier':
+        return const Color(0xFFFF5C02);
+      case 'entrepôt':
+        return const Color(0xFF9C27B0);
+      default:
+        return const Color(0xFF8A98A8);
+    }
+  }
+
+  IconData _getTypeIcon(String type) {
+    switch (type.toLowerCase()) {
+      case 'bureau':
+        return Icons.business;
+      case 'chantier':
+        return Icons.construction;
+      case 'entrepôt':
+        return Icons.warehouse;
+      default:
+        return Icons.location_on;
+    }
   }
 }
