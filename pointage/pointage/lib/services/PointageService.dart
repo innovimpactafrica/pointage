@@ -161,6 +161,34 @@ class PointageService {
     }
   }
 
+  /// Récupérer le résumé mensuel de pointage d'un utilisateur
+  Future<Map<String, dynamic>> getMonthlySummary(int userId) async {
+    try {
+      print(
+        '📊 [PointageService] Récupération résumé mensuel pour user $userId',
+      );
+
+      final response = await _apiService.dio.get(
+        '/workers/$userId/monthly-summary',
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = response.data;
+        print('✅ [PointageService] Résumé mensuel récupéré');
+        print('⏱️ [PointageService] Temps total: ${data['totalWorkedTime']}');
+        return data;
+      } else {
+        print(
+          '❌ [PointageService] Erreur lors de la récupération: ${response.statusCode}',
+        );
+        return {'dailySummaries': [], 'totalWorkedTime': '0h 00min'};
+      }
+    } catch (e) {
+      print('❌ [PointageService] Exception lors de la récupération: $e');
+      return {'dailySummaries': [], 'totalWorkedTime': '0h 00min'};
+    }
+  }
+
   /// Récupérer le pointage du jour pour un utilisateur (premier seulement - pour compatibilité)
   Future<PointageModel?> getPointageDuJour(int userId) async {
     try {

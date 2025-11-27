@@ -1,48 +1,57 @@
-// lib/blocs/auth/auth_state.dart
-
 import 'package:equatable/equatable.dart';
-import 'package:pointage/bloc/auth/auth_state.dart';
-import '../../models/UserModel.dart';
 
-abstract class AuthState extends Equatable {
-  const AuthState();
+abstract class AuthEvent extends Equatable {
+  const AuthEvent();
 
   @override
-  List<Object?> get props => [];
+  List<Object> get props => [];
 }
 
-class AuthInitialState extends AuthState {}
-
-class AuthLoadingState extends AuthState {}
-
-class AuthAuthenticatedState extends AuthState {
-  final UserModel user;
-  final String message;
-
-  const AuthAuthenticatedState({required this.user, required this.message});
-
-  @override
-  List<Object?> get props => [user, message];
-}
-
-class AuthUnauthenticatedState extends AuthState {}
-
-class AuthErrorState extends AuthState {
-  final String message;
-
-  const AuthErrorState({required this.message});
-
-  @override
-  List<Object?> get props => [message];
-}
-
-class AuthForgotPasswordSentState extends AuthState {
+class AuthLoginEvent extends AuthEvent {
   final String email;
+  final String password;
 
-  const AuthForgotPasswordSentState({required this.email});
+  const AuthLoginEvent({required this.email, required this.password});
 
   @override
-  List<Object?> get props => [email];
+  List<Object> get props => [email, password];
+}
+
+class AuthSignupEvent extends AuthEvent {
+  final String nom;
+  final String prenom;
+  final String email;
+  final String password;
+  final String telephone;
+  final String? date;
+  final String? lieunaissance;
+  final String? adress;
+  final String profil;
+
+  const AuthSignupEvent({
+    required this.nom,
+    required this.prenom,
+    required this.email,
+    required this.password,
+    required this.telephone,
+    this.date,
+    this.lieunaissance,
+    this.adress,
+    this.profil = "WORKER",
+  });
+
+  @override
+  List<Object> get props => [
+    nom,
+    prenom,
+    email,
+    password,
+    telephone,
+    date ?? '',
+    lieunaissance ?? '',
+    adress ?? '',
+    profil,
+  ];
 }
 
 class AuthLogoutEvent extends AuthEvent {}
@@ -54,4 +63,19 @@ class AuthForgotPasswordEvent extends AuthEvent {
 
   @override
   List<Object> get props => [email];
+}
+
+class AuthChangePasswordEvent extends AuthEvent {
+  final String email;
+  final String password;
+  final String newPassword;
+
+  const AuthChangePasswordEvent({
+    required this.email,
+    required this.password,
+    required this.newPassword,
+  });
+
+  @override
+  List<Object> get props => [email, password, newPassword];
 }

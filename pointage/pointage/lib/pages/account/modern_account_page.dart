@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../services/AuthService.dart';
 import '../../models/UserModel.dart';
 import '../../utils/HexColor.dart';
+import '../../services/SharedPreferencesService.dart';
+import '../../services/location_service.dart';
 import '../auth/login_page.dart';
+import 'personal_info_page.dart';
 
 class ModernAccountPage extends StatefulWidget {
   const ModernAccountPage({Key? key}) : super(key: key);
@@ -14,25 +18,56 @@ class ModernAccountPage extends StatefulWidget {
 
 class _ModernAccountPageState extends State<ModernAccountPage> {
   final _authService = AuthService();
+  final _prefsService = SharedPreferencesService();
+  final _locationService = LocationService();
   UserModel? _currentUser;
   bool _isLoading = true;
-  bool notificationsEnabled = true;
+  bool notificationsEnabled = false;
   bool locationEnabled = false;
 
   @override
   void initState() {
     super.initState();
+    _loadPreferences();
     _loadUserData();
   }
 
+  Future<void> _loadPreferences() async {
+    final notifications = await _prefsService.getBoolValue('notifications_enabled');
+    
+    // Vérifier l'état réel des permissions de localisation
+    bool locationPermissionGranted = false;
+    try {
+      final permission = await _locationService.checkPermission();
+      final serviceEnabled = await _locationService.isLocationServiceEnabled();
+      locationPermissionGranted = (permission == LocationPermission.whileInUse ||
+              permission == LocationPermission.always) &&
+          serviceEnabled;
+    } catch (e) {
+      print('❌ Erreur lors de la vérification des permissions: $e');
+    }
+    
+    if (mounted) {
+      setState(() {
+        notificationsEnabled = notifications ?? false;
+        locationEnabled = locationPermissionGranted;
+      });
+      
+      // Sauvegarder l'état réel
+      await _prefsService.saveBoolValue('location_enabled', locationPermissionGranted);
+    }
+  }
+
   Future<void> _loadUserData() async {
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
     });
 
     try {
       final userData = await _authService.connectedUser();
-      if (userData != null) {
+      if (userData != null && mounted) {
         setState(() {
           _currentUser = UserModel.fromJson(userData);
         });
@@ -40,9 +75,11 @@ class _ModernAccountPageState extends State<ModernAccountPage> {
     } catch (e) {
       print('❌ Erreur lors du chargement des données: $e');
     } finally {
+      if (mounted) {
       setState(() {
         _isLoading = false;
       });
+      }
     }
   }
 
@@ -56,12 +93,14 @@ class _ModernAccountPageState extends State<ModernAccountPage> {
         );
       }
     } catch (e) {
+      if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Erreur lors de la déconnexion: $e'),
           backgroundColor: Colors.red,
         ),
       );
+      }
     }
   }
 
@@ -225,8 +264,14 @@ class _ModernAccountPageState extends State<ModernAccountPage> {
                     hasSwitch: false,
                     hasArrow: true,
                     onTap: () {
-                      if (isLoggedIn) {
-                        // Navigation vers la page de profil
+                      if (isLoggedIn && _currentUser != null) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => PersonalInfoPage(
+                              user: _currentUser!,
+                            ),
+                          ),
+                        );
                       } else {
                         _showLoginRequiredDialog(context);
                       }
@@ -243,8 +288,22 @@ class _ModernAccountPageState extends State<ModernAccountPage> {
                     icon: Icon(Icons.notifications, color: HexColor('#FF5C02')),
                     title: 'Notifications',
                     value: notificationsEnabled,
-                    onChanged:
-                        (value) => setState(() => notificationsEnabled = value),
+                    onChanged: (value) async {
+                      if (mounted) {
+                        setState(() => notificationsEnabled = value);
+                        await _prefsService.saveBoolValue('notifications_enabled', value);
+                        
+                        if (value) {
+                          // Demander les permissions de notifications si activées
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Notifications activées'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      }
+                    },
                   ),
                   const Divider(
                     height: 0.5,
@@ -257,8 +316,95 @@ class _ModernAccountPageState extends State<ModernAccountPage> {
                     icon: Icon(Icons.location_on, color: HexColor('#FF5C02')),
                     title: 'Localisation',
                     value: locationEnabled,
-                    onChanged:
-                        (value) => setState(() => locationEnabled = value),
+                    onChanged: (value) async {
+                      if (!mounted) return;
+                      
+                      if (value) {
+                        // Demander les permissions de localisation si activée
+                        try {
+                          // Vérifier d'abord si le service de localisation est activé
+                          final serviceEnabled = await _locationService.isLocationServiceEnabled();
+                          if (!serviceEnabled) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Veuillez activer les services de localisation dans les paramètres'),
+                                  backgroundColor: Colors.orange,
+                                  duration: Duration(seconds: 3),
+                                ),
+                              );
+                            }
+                            // Garder le toggle désactivé
+                            setState(() => locationEnabled = false);
+                            await _prefsService.saveBoolValue('location_enabled', false);
+                            return;
+                          }
+                          
+                          // Vérifier les permissions
+                          var permission = await _locationService.checkPermission();
+                          if (permission == LocationPermission.denied) {
+                            permission = await _locationService.requestPermission();
+                          }
+                          
+                          // Vérifier si les permissions sont accordées
+                          if (permission == LocationPermission.denied ||
+                              permission == LocationPermission.deniedForever) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Les permissions de localisation sont requises'),
+                                  backgroundColor: Colors.orange,
+                                  duration: Duration(seconds: 3),
+                                ),
+                              );
+                            }
+                            // Garder le toggle désactivé
+                            setState(() => locationEnabled = false);
+                            await _prefsService.saveBoolValue('location_enabled', false);
+                            return;
+                          }
+                          
+                          // Permissions accordées, activer le toggle
+                          if (mounted) {
+                            setState(() => locationEnabled = true);
+                            await _prefsService.saveBoolValue('location_enabled', true);
+                            
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Localisation activée'),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Erreur: ${e.toString()}'),
+                                backgroundColor: Colors.red,
+                                duration: const Duration(seconds: 3),
+                              ),
+                            );
+                            // Garder le toggle désactivé en cas d'erreur
+                            setState(() => locationEnabled = false);
+                            await _prefsService.saveBoolValue('location_enabled', false);
+                          }
+                        }
+                      } else {
+                        // Désactiver la localisation
+                        setState(() => locationEnabled = false);
+                        await _prefsService.saveBoolValue('location_enabled', false);
+                        
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Localisation désactivée'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      }
+                    },
                   ),
                 ],
               ),

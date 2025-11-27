@@ -1,55 +1,52 @@
 import 'package:equatable/equatable.dart';
+import '../../models/UserModel.dart';
 
-abstract class AuthEvent extends Equatable {
-  const AuthEvent();
+abstract class AuthState extends Equatable {
+  const AuthState();
 
   @override
-  List<Object> get props => [];
+  List<Object?> get props => [];
 }
 
-class AuthLoginEvent extends AuthEvent {
-  final String email;
-  final String password;
+class AuthInitialState extends AuthState {}
 
-  const AuthLoginEvent({required this.email, required this.password});
+class AuthLoadingState extends AuthState {}
+
+class AuthAuthenticatedState extends AuthState {
+  final UserModel user;
+  final String message;
+
+  const AuthAuthenticatedState({required this.user, required this.message});
 
   @override
-  List<Object> get props => [email, password];
+  List<Object?> get props => [user, message];
 }
 
-class AuthSignupEvent extends AuthEvent {
-  final String nom;
-  final String prenom;
-  final String email;
-  final String password;
-  final String telephone;
-  final String? date;
-  final String? lieunaissance;
-  final String? adress;
-  final String profil;
+class AuthUnauthenticatedState extends AuthState {}
 
-  const AuthSignupEvent({
-    required this.nom,
-    required this.prenom,
-    required this.email,
-    required this.password,
-    required this.telephone,
-    this.date,
-    this.lieunaissance,
-    this.adress,
-    this.profil = "WORKER",
-  });
+class AuthErrorState extends AuthState {
+  final String message;
+
+  const AuthErrorState({required this.message});
 
   @override
-  List<Object> get props => [
-    nom,
-    prenom,
-    email,
-    password,
-    telephone,
-    date ?? '',
-    lieunaissance ?? '',
-    adress ?? '',
-    profil,
-  ];
+  List<Object?> get props => [message];
+}
+
+class AuthForgotPasswordSentState extends AuthState {
+  final String email;
+
+  const AuthForgotPasswordSentState({required this.email});
+
+  @override
+  List<Object?> get props => [email];
+}
+
+class AuthPasswordChangedState extends AuthState {
+  final String message;
+
+  const AuthPasswordChangedState({required this.message});
+
+  @override
+  List<Object?> get props => [message];
 }

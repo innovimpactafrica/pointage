@@ -45,6 +45,7 @@ dependencies:
   flutter_switch: ^0.3.2
   url_launcher: ^6.3.1
   image_picker: ^1.1.2
+  curved_navigation_bar: ^1.0.3
 
 dev_dependencies:
   flutter_test:
@@ -56,6 +57,8 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.3.10
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -98,3 +101,22 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# Configuration pour générer les icônes de l'application
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/image.png"
+  min_sdk_android: 21 # Android minimum sdk
+  adaptive_icon_background: "#1A365D" # Couleur de fond pour Android adaptive icon
+  adaptive_icon_foreground: "assets/images/image.png"
+  remove_alpha_ios: true # Supprime le canal alpha pour iOS (requis pour App Store)
+
+# Configuration pour le splash screen (écran de démarrage)
+flutter_native_splash:
+  color: "#1A365D" # Couleur de fond (bleu foncé)
+  image: "assets/images/image.png" # Image à afficher au démarrage
+  android: true
+  ios: true
+  android_gravity: center # Centrer l'image
+  ios_content_mode: center # Centrer l'image sur iOS

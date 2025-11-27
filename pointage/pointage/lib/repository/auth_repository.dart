@@ -120,6 +120,24 @@ class AuthRepository {
     }
   }
 
+  Future<UserModel> changePassword({
+    required String email,
+    required String password,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await _authService.changePassword(
+        email: email,
+        password: password,
+        newPassword: newPassword,
+      );
+      return UserModel.fromJson(response);
+    } catch (e) {
+      print('Change password error: $e');
+      throw Exception("Erreur lors de la modification du mot de passe : ${e.toString()}");
+    }
+  }
+
   Future<void> _saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('access_token', token);

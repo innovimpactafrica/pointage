@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../models/UserModel.dart';
 import '../services/AuthService.dart';
-import '../services/SharedPreferencesService.dart';
-import '../utils/constants.dart';
+
 import '../utils/HexColor.dart';
 
 class PointageComptePage extends StatefulWidget {

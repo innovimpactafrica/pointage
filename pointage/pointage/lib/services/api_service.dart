@@ -33,10 +33,6 @@ class ApiService {
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          // DEBUG: Afficher tous les headers envoyés
-          print('[DEBUG] Headers envoyés: \n${options.headers}');
-          print('🔍 [ApiService] URL de la requête: ${options.uri}');
-          print('🔍 [ApiService] Méthode: ${options.method}');
 
           if (_isProtectedApi(options)) {
             String? token = await _getToken();
@@ -46,15 +42,9 @@ class ApiService {
               // Alternative formats that some servers might expect
               options.headers['X-Auth-Token'] = token;
               options.headers['X-API-Key'] = token;
-
-              print(
-                '🔐 Token ajouté pour ${options.uri}: ${token.substring(0, 20)}...',
-              );
             } else {
-              print('⚠️ Aucun token trouvé pour ${options.uri}');
+              print('⚠️ [ApiService] Aucun token trouvé pour ${options.uri}');
             }
-          } else {
-            print('🔓 API non protégée: ${options.uri}');
           }
 
           return handler.next(options);
@@ -77,6 +67,16 @@ class ApiService {
 
   /// Détermine si une API nécessite une authentification
   bool _isProtectedApi(RequestOptions options) {
+    // Liste des routes publiques (ne nécessitent pas d'authentification)
+    const publicApis = [
+      "/v1/auth/signin",
+      "/v1/auth/signup",
+      "/v1/auth/login",
+      "/v1/auth/register",
+      "/v1/auth/password/change",
+    ];
+
+    // Liste des routes protégées (nécessitent une authentification)
     const protectedApis = [
       // Authentification et utilisateurs
       "/v1/user/me",
@@ -105,11 +105,6 @@ class ApiService {
       "/study-requests/reports",
       "/study-requests/comments",
       "/study-requests/comment",
-      "/study-requests/6",
-      "/study-requests/7",
-      "/study-requests/8",
-      "/study-requests/9",
-      "/study-requests/10",
       "/bets",
 
       // APIs communes
@@ -120,90 +115,41 @@ class ApiService {
 
     final uri = options.uri.toString();
 
-    // Vérifier les patterns spécifiques
+    // Vérifier d'abord si c'est une route publique
+    for (var api in publicApis) {
+      if (uri.contains(api)) {
+        return false; // Route publique, pas besoin de token
+      }
+    }
+
+    // Vérifier les patterns spécifiques protégés
     for (var api in protectedApis) {
       if (uri.contains(api)) {
-        print('✅ [ApiService] API protégée détectée: $api dans $uri');
         return true;
       }
     }
 
-    // Vérifier spécifiquement les endpoints workers
+    // Vérifier spécifiquement les endpoints workers avec ID
     if (RegExp(r'/workers/\d+').hasMatch(uri)) {
-      print('✅ [ApiService] API protégée détectée: /workers/{id} dans $uri');
       return true;
     }
 
-    // Debug spécifique pour study-requests
-    if (uri.contains('study-requests')) {
-      print('🔍 [ApiService] URL contient "study-requests": $uri');
-      print('🔍 [ApiService] Vérification des patterns study-requests:');
-      for (var api in protectedApis) {
-        if (api.contains('study-requests')) {
-          print('  - $api: ${uri.contains(api)}');
-        }
-      }
-    }
-
-    // Vérifier les endpoints avec des IDs (ex: /study-requests/123)
-    // Utiliser une regex plus flexible pour capturer les URLs complètes
-    if (RegExp(r'/study-requests/\d+').hasMatch(uri)) {
-      print(
-        '✅ [ApiService] API protégée détectée: /study-requests/{id} dans $uri',
-      );
+    // Vérifier les endpoints study-requests avec ID (ex: /study-requests/123)
+    if (RegExp(r'/study-requests/\d+').hasMatch(uri) ||
+        RegExp(r'study-requests/\d+').hasMatch(uri) ||
+        RegExp(r'https://wakana\.online/api/study-requests/\d+').hasMatch(uri)) {
       return true;
     }
 
-    // Vérifier aussi les URLs complètes avec le domaine
-    if (RegExp(r'study-requests/\d+').hasMatch(uri)) {
-      print(
-        '✅ [ApiService] API protégée détectée: study-requests/{id} dans $uri',
-      );
-      return true;
-    }
-
-    // Vérifier les URLs complètes avec le domaine complet
-    if (RegExp(
-      r'https://wakana\.online/api/study-requests/\d+',
-    ).hasMatch(uri)) {
-      print(
-        '✅ [ApiService] API protégée détectée: URL complète study-requests/{id} dans $uri',
-      );
-      return true;
-    }
-
-    // Debug: Afficher tous les patterns testés
-    print('🔍 [ApiService] Patterns testés pour $uri:');
-    for (var api in protectedApis) {
-      print('  - $api: ${uri.contains(api)}');
-    }
-    print(
-      '  - /study-requests/\\d+: ${RegExp(r'/study-requests/\d+').hasMatch(uri)}',
-    );
-    print(
-      '  - study-requests/\\d+: ${RegExp(r'study-requests/\d+').hasMatch(uri)}',
-    );
-    print(
-      '  - https://wakana.online/api/study-requests/\\d+: ${RegExp(r'https://wakana\.online/api/study-requests/\d+').hasMatch(uri)}',
-    );
-
-    print('❌ [ApiService] API non protégée: $uri');
+    // Par défaut, considérer comme non protégée (route publique)
     return false;
   }
 
   /// Récupère le token d'authentification depuis le stockage local
   Future<String?> _getToken() async {
-    String? token = await _sharedPreferencesService.getValue(
+    return await _sharedPreferencesService.getValue(
       PointageConstants.AUTH_TOKEN,
     );
-    if (token != null) {
-      print('🔑 Token récupéré: ${token.substring(0, 20)}...');
-      print('🔑 Token complet: $token');
-    } else {
-      print('🔑 Aucun token trouvé dans le stockage');
-      print('🔑 Clé utilisée: ${PointageConstants.AUTH_TOKEN}');
-    }
-    return token;
   }
 
   /// Méthode publique pour récupérer le token (utile pour les services)
@@ -217,3 +163,4 @@ class ApiService {
     return _isProtectedApi(options);
   }
 }
+

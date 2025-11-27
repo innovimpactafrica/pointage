@@ -16,6 +16,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthSignupEvent>(_onAuthSignupEvent);
     on<AuthLogoutEvent>(_onAuthLogoutEvent);
     on<AuthForgotPasswordEvent>(_onAuthForgotPasswordEvent);
+    on<AuthChangePasswordEvent>(_onAuthChangePasswordEvent);
   }
 
   Future<void> _onAuthLoginEvent(
@@ -85,6 +86,30 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         AuthErrorState(
           message:
               'Erreur lors de la récupération du mot de passe : ${e.toString()}',
+        ),
+      );
+    }
+  }
+
+  Future<void> _onAuthChangePasswordEvent(
+    AuthChangePasswordEvent event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(AuthLoadingState());
+
+    try {
+      await _authRepository.changePassword(
+        email: event.email,
+        password: event.password,
+        newPassword: event.newPassword,
+      );
+      emit(const AuthPasswordChangedState(
+        message: 'Mot de passe modifié avec succès',
+      ));
+    } catch (e) {
+      emit(
+        AuthErrorState(
+          message: 'Erreur lors de la modification du mot de passe : ${e.toString()}',
         ),
       );
     }

@@ -3,7 +3,6 @@ import '../../services/AuthService.dart';
 import '../../models/UserModel.dart';
 import '../../models/PointageModel.dart';
 import '../../services/PointageService.dart';
-// import '../../utils/constants.dart';
 import '../qr_scanner/qr_scanner_page.dart';
 import '../addresses/add_address_page.dart';
 
@@ -16,6 +15,27 @@ class ModernPointagePage extends StatefulWidget {
 
 class _ModernPointagePageState extends State<ModernPointagePage> {
   int _selectedTab = 0;
+  final _authService = AuthService();
+  UserModel? _currentUser;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      final userData = await _authService.connectedUser();
+      if (userData != null && mounted) {
+        setState(() {
+          _currentUser = UserModel.fromJson(userData);
+        });
+      }
+    } catch (e) {
+      // Ignorer les erreurs silencieusement
+    }
+  }
 
   void _goToHistorique() {
     setState(() {
@@ -23,32 +43,140 @@ class _ModernPointagePageState extends State<ModernPointagePage> {
     });
   }
 
-  void _goToAdresses() {
-    setState(() {
-      _selectedTab = 2;
-    });
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Container(
+        color: const Color(0xFFF5F7FA),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _AppHeader(currentUser: _currentUser),
+            _PointageHeaderTabs(
+              selected: _selectedTab,
+              onChanged: (i) => setState(() => _selectedTab = i),
+            ),
+            Expanded(
+              child:
+                  _selectedTab == 0
+                      ? _PointageDuJourCard(onVoirPlus: _goToHistorique)
+                      : _selectedTab == 1
+                      ? _HistoriqueTab(userId: _currentUser?.id)
+                      : const _AdressesTab(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AppHeader extends StatelessWidget {
+  final UserModel? currentUser;
+
+  const _AppHeader({required this.currentUser});
+
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) {
+      return 'Bonjour';
+    } else if (hour < 18) {
+      return 'Bon après-midi';
+    } else {
+      return 'Bonsoir';
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: const Color(0xFFF5F7FA),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _PointageHeaderTabs(
-            selected: _selectedTab,
-            onChanged: (i) => setState(() => _selectedTab = i),
-          ),
-          Expanded(
-            child:
-                _selectedTab == 0
-                    ? _PointageDuJourCard(onVoirPlus: _goToHistorique)
-                    : _selectedTab == 1
-                    ? const _HistoriqueTab()
-                    : const _AdressesTab(),
-          ),
-        ],
+      decoration: const BoxDecoration(color: Color(0xFF1A365D)),
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            // Barre supérieure avec logo
+            const Text(
+              'Pointage',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 32,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+
+            // Section utilisateur avec photo et message
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Row(
+                children: [
+                  // Photo de profil
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withOpacity(0.2),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.3),
+                        width: 2,
+                      ),
+                    ),
+                    child:
+                        currentUser?.photo != null &&
+                                currentUser!.photo!.isNotEmpty
+                            ? ClipOval(
+                              child: Image.network(
+                                currentUser!.photo!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return const Icon(
+                                    Icons.person,
+                                    color: Colors.white,
+                                    size: 30,
+                                  );
+                                },
+                              ),
+                            )
+                            : const Icon(
+                              Icons.person,
+                              color: Colors.white,
+                              size: 30,
+                            ),
+                  ),
+                  const SizedBox(width: 16),
+                  // Message de bienvenue
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                '${_getGreeting()} ${currentUser?.prenom ?? 'Utilisateur'}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Text('👋', style: TextStyle(fontSize: 16)),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -66,26 +194,14 @@ class _PointageHeaderTabs extends StatelessWidget {
       decoration: const BoxDecoration(
         color: Color(0xFF1A365D),
         borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(32),
-          topRight: Radius.circular(32),
+          bottomLeft: Radius.circular(32),
+          bottomRight: Radius.circular(32),
         ),
       ),
-      padding: const EdgeInsets.only(bottom: 0),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 18),
-          const Padding(
-            padding: EdgeInsets.only(left: 20, right: 20, top: 40, bottom: 20),
-            child: Text(
-              'Pointage',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 28,
-              ),
-            ),
-          ),
           Row(
             children: [
               Flexible(
@@ -250,7 +366,6 @@ class _PointageDuJourCardState extends State<_PointageDuJourCard> {
   bool _isLoading = true;
   String _lastPointageTime = '--:--';
   String _totalWorkedTime = '0h 00min';
-  String _checkOutTime = '--:--';
   List<PointageModel> _todayPointages =
       []; // Nouvelle variable pour stocker tous les pointages d'aujourd'hui
 
@@ -261,28 +376,33 @@ class _PointageDuJourCardState extends State<_PointageDuJourCard> {
   }
 
   Future<void> _loadUserData() async {
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
     });
 
     try {
       final userData = await _authService.connectedUser();
-      if (userData != null) {
+      if (userData != null && mounted) {
         setState(() {
           _currentUser = UserModel.fromJson(userData);
         });
-        _loadTodayPointage();
+        await _loadTodayPointage();
       }
     } catch (e) {
       print('❌ Erreur lors du chargement des données: $e');
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
   Future<void> _loadTodayPointage() async {
+    if (!mounted) return;
     if (_currentUser == null) return;
 
     try {
@@ -298,6 +418,7 @@ class _PointageDuJourCardState extends State<_PointageDuJourCard> {
       );
 
       if (todayPointages.isNotEmpty) {
+        if (!mounted) return;
         setState(() {
           _todayPointages = todayPointages;
 
@@ -312,21 +433,19 @@ class _PointageDuJourCardState extends State<_PointageDuJourCard> {
 
           // Formater l'heure de départ (prendre le dernier départ s'il y en a un)
           final lastPointage = todayPointages.last;
-          if (lastPointage.heureDepart != null) {
-            _checkOutTime =
-                '${lastPointage.heureDepart!.hour.toString().padLeft(2, '0')}:${lastPointage.heureDepart!.minute.toString().padLeft(2, '0')}';
-          }
+          if (lastPointage.heureDepart != null) {}
 
           // Calculer le temps total travaillé de TOUTES les sessions
           _totalWorkedTime = _calculateTotalWorkedTime(todayPointages);
         });
       } else {
-        setState(() {
-          _todayPointages = [];
-          _lastPointageTime = '--:--';
-          _checkOutTime = '--:--';
-          _totalWorkedTime = '0h 00min';
-        });
+        if (mounted) {
+          setState(() {
+            _todayPointages = [];
+            _lastPointageTime = '--:--';
+            _totalWorkedTime = '0h 00min';
+          });
+        }
       }
     } catch (e) {
       print('❌ Erreur lors du chargement du pointage: $e');
@@ -374,18 +493,9 @@ class _PointageDuJourCardState extends State<_PointageDuJourCard> {
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.only(top: 20, bottom: 24),
+      padding: const EdgeInsets.only(top: 20, bottom: 100),
       child: Column(
         children: [
-          const Text(
-            'Pointage du jour',
-            style: TextStyle(
-              color: Color(0xFF1A365D),
-              fontWeight: FontWeight.bold,
-              fontSize: 28,
-            ),
-          ),
-          const SizedBox(height: 16),
           Center(
             child: Container(
               width: MediaQuery.of(context).size.width * 0.92,
@@ -612,9 +722,8 @@ class _PointageDuJourCardState extends State<_PointageDuJourCard> {
 class _SessionCard extends StatelessWidget {
   final String? entree;
   final String? sortie;
-  final String? sessionNumber;
 
-  const _SessionCard({this.entree, this.sortie, this.sessionNumber});
+  const _SessionCard({this.entree, this.sortie});
 
   @override
   Widget build(BuildContext context) {
@@ -633,17 +742,6 @@ class _SessionCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Numéro de session si multiple
-                if (sessionNumber != null) ...[
-                  Text(
-                    sessionNumber!,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFFFF5C02),
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                ],
                 Row(
                   children: [
                     const Icon(Icons.login, size: 20, color: Color(0xFF4CAF50)),
@@ -718,41 +816,273 @@ class _SessionCard extends StatelessWidget {
   }
 }
 
-class _HistoriqueTab extends StatelessWidget {
-  const _HistoriqueTab();
+class _HistoriqueTab extends StatefulWidget {
+  final int? userId;
+
+  const _HistoriqueTab({this.userId});
+
+  @override
+  State<_HistoriqueTab> createState() => _HistoriqueTabState();
+}
+
+class _HistoriqueTabState extends State<_HistoriqueTab> {
+  final _pointageService = PointageService();
+  bool _isLoading = true;
+  Map<String, dynamic> _monthlyData = {
+    'dailySummaries': [],
+    'totalWorkedTime': '0h 00min',
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.userId != null) {
+      _loadHistorique();
+    } else {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadHistorique() async {
+    if (widget.userId == null) return;
+
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final data = await _pointageService.getMonthlySummary(widget.userId!);
+      if (mounted) {
+        setState(() {
+          _monthlyData = data;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('❌ Erreur lors du chargement de l\'historique: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  /// Formate une date du format "03-11-2025" vers "Mer. 03 nov. 2025"
+  String _formatDate(String dateStr) {
+    try {
+      final parts = dateStr.split('-');
+      if (parts.length != 3) return dateStr;
+
+      final day = int.parse(parts[0]);
+      final month = int.parse(parts[1]);
+      final year = int.parse(parts[2]);
+
+      final date = DateTime(year, month, day);
+      final weekdays = ['Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.', 'Sam.', 'Dim.'];
+      final months = [
+        'janv.',
+        'févr.',
+        'mars',
+        'avr.',
+        'mai',
+        'juin',
+        'juil.',
+        'août',
+        'sept.',
+        'oct.',
+        'nov.',
+        'déc.',
+      ];
+
+      final weekday = weekdays[date.weekday - 1];
+      final monthName = months[month - 1];
+
+      return '$weekday $day $monthName $year';
+    } catch (e) {
+      return dateStr;
+    }
+  }
+
+  /// Groupe les données par mois
+  Map<String, Map<String, dynamic>> _groupByMonth() {
+    final Map<String, Map<String, dynamic>> grouped = {};
+    final List<dynamic> summaries = _monthlyData['dailySummaries'] ?? [];
+
+    for (final summary in summaries) {
+      final day = summary['day'] as String;
+      final hoursWorked = summary['hoursWorked'] as String;
+
+      try {
+        final parts = day.split('-');
+        if (parts.length == 3) {
+          final month = int.parse(parts[1]);
+          final year = int.parse(parts[2]);
+
+          final months = [
+            'Janvier',
+            'Février',
+            'Mars',
+            'Avril',
+            'Mai',
+            'Juin',
+            'Juillet',
+            'Août',
+            'Septembre',
+            'Octobre',
+            'Novembre',
+            'Décembre',
+          ];
+
+          final monthKey = '${months[month - 1]} $year';
+          if (!grouped.containsKey(monthKey)) {
+            grouped[monthKey] = {
+              'mois': monthKey,
+              'total': '0h 00min',
+              'jours': <Map<String, dynamic>>[],
+            };
+          }
+
+          grouped[monthKey]!['jours'].add({
+            'date': _formatDate(day),
+            'dateOriginal': day, // Garder la date originale pour le tri
+            'total': hoursWorked,
+          });
+        }
+      } catch (e) {
+        print('❌ Erreur lors du formatage de la date: $e');
+      }
+    }
+
+    // Calculer le total par mois
+    for (final monthData in grouped.values) {
+      int totalMinutes = 0;
+      for (final jour in monthData['jours'] as List) {
+        final hoursWorked = jour['total'] as String;
+        final match = RegExp(r'(\d+)h\s*(\d+)min').firstMatch(hoursWorked);
+        if (match != null) {
+          final hours = int.parse(match.group(1)!);
+          final minutes = int.parse(match.group(2)!);
+          totalMinutes += hours * 60 + minutes;
+        }
+      }
+      final totalHours = totalMinutes ~/ 60;
+      final remainingMinutes = totalMinutes % 60;
+      monthData['total'] =
+          '${totalHours}h ${remainingMinutes.toString().padLeft(2, '0')}min';
+    }
+
+    // Trier par mois (du plus récent au plus ancien)
+    final sortedKeys =
+        grouped.keys.toList()..sort((a, b) {
+          // Extraire l'année et le mois pour trier
+          final aParts = a.split(' ');
+          final bParts = b.split(' ');
+          if (aParts.length == 2 && bParts.length == 2) {
+            final aYear = int.tryParse(aParts[1]) ?? 0;
+            final bYear = int.tryParse(bParts[1]) ?? 0;
+            if (aYear != bYear) return bYear.compareTo(aYear);
+
+            final months = [
+              'Janvier',
+              'Février',
+              'Mars',
+              'Avril',
+              'Mai',
+              'Juin',
+              'Juillet',
+              'Août',
+              'Septembre',
+              'Octobre',
+              'Novembre',
+              'Décembre',
+            ];
+            final aMonth = months.indexOf(aParts[0]);
+            final bMonth = months.indexOf(bParts[0]);
+            return bMonth.compareTo(aMonth);
+          }
+          return b.compareTo(a);
+        });
+
+    final sortedGrouped = <String, Map<String, dynamic>>{};
+    for (final key in sortedKeys) {
+      sortedGrouped[key] = grouped[key]!;
+      // Trier les jours du mois (du plus récent au plus ancien) en utilisant la date originale
+      (sortedGrouped[key]!['jours'] as List).sort((a, b) {
+        final aDateStr = a['dateOriginal'] as String;
+        final bDateStr = b['dateOriginal'] as String;
+
+        try {
+          // Parser les dates au format "03-11-2025"
+          final aParts = aDateStr.split('-');
+          final bParts = bDateStr.split('-');
+
+          if (aParts.length == 3 && bParts.length == 3) {
+            final aDate = DateTime(
+              int.parse(aParts[2]),
+              int.parse(aParts[1]),
+              int.parse(aParts[0]),
+            );
+            final bDate = DateTime(
+              int.parse(bParts[2]),
+              int.parse(bParts[1]),
+              int.parse(bParts[0]),
+            );
+            // Du plus récent au plus ancien
+            return bDate.compareTo(aDate);
+          }
+        } catch (e) {
+          print('❌ Erreur lors du tri des dates: $e');
+        }
+
+        return bDateStr.compareTo(aDateStr);
+      });
+    }
+
+    return sortedGrouped;
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Données d'exemple pour l'historique
-    final historiques = [
-      {
-        'mois': 'Juillet 2025',
-        'total': '87h 26',
-        'jours': [
-          {'date': 'Mer. 16 juil. 2025', 'total': '11h 20min'},
-          {'date': 'Mar. 15 juil. 2025', 'total': '8h 40min'},
-          {'date': 'Lun. 14 juil. 2025', 'total': '8h 30min'},
-          {'date': 'Ven. 11 juil. 2025', 'total': '8h 45min'},
-          {'date': 'Jeu. 10 juil. 2025', 'total': '8h 00min'},
-          {'date': 'Mer. 09 juil. 2025', 'total': '09h 04min'},
-        ],
-      },
-      {
-        'mois': 'Juin 2025',
-        'total': '151h 36',
-        'jours': [
-          {'date': 'Lun. 30 juin 2025', 'total': '8h 58min'},
-          {'date': 'Ven. 27 juin 2025', 'total': '8h 30min'},
-        ],
-      },
-    ];
+    if (_isLoading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32.0),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    final historiques = _groupByMonth();
+
+    if (historiques.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.history, size: 64, color: Colors.grey[400]),
+              const SizedBox(height: 16),
+              Text(
+                'Aucun historique disponible',
+                style: TextStyle(color: Colors.grey[600], fontSize: 16),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 0),
+      padding: const EdgeInsets.only(top: 16, bottom: 100, left: 0, right: 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (final mois in historiques) ...[
+          for (final mois in historiques.values) ...[
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               child: Row(
@@ -777,7 +1107,7 @@ class _HistoriqueTab extends StatelessWidget {
                 ],
               ),
             ),
-            for (final jour in (mois['jours'] as List))
+            for (final jour in (mois['jours'] as List<Map<String, dynamic>>))
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -804,7 +1134,7 @@ class _HistoriqueTab extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  jour['date'] as String,
+                                  jour['date'] ?? '',
                                   style: const TextStyle(
                                     color: Color(0xFF1A365D),
                                     fontWeight: FontWeight.bold,
@@ -860,6 +1190,8 @@ class _AdressesTabState extends State<_AdressesTab> {
   }
 
   Future<void> _loadAdresses() async {
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
     });
@@ -872,17 +1204,22 @@ class _AdressesTabState extends State<_AdressesTab> {
       final adressesApi = await _pointageService.getAdressesPointage(projectId);
 
       // Transformer les données de l'API pour correspondre à notre format d'affichage
-      _adresses =
-          adressesApi.map((adresse) {
-            return {
-              'id': adresse['id'],
-              'nom': adresse['name'],
-              'latitude': adresse['latitude'],
-              'longitude': adresse['longitude'],
-              'type': _determinerTypeAdresse(adresse['name']),
-              'isActive': true, // Par défaut, toutes les adresses sont actives
-            };
-          }).toList();
+      if (mounted) {
+        setState(() {
+          _adresses =
+              adressesApi.map((adresse) {
+                return {
+                  'id': adresse['id'],
+                  'nom': adresse['name'],
+                  'latitude': adresse['latitude'],
+                  'longitude': adresse['longitude'],
+                  'type': _determinerTypeAdresse(adresse['name']),
+                  'isActive':
+                      true, // Par défaut, toutes les adresses sont actives
+                };
+              }).toList();
+        });
+      }
 
       print(
         '✅ [AdressesTab] ${_adresses.length} adresses chargées depuis l\'API',
@@ -890,20 +1227,12 @@ class _AdressesTabState extends State<_AdressesTab> {
     } catch (e) {
       print('❌ [AdressesTab] Erreur lors du chargement des adresses: $e');
       // En cas d'erreur, utiliser des données d'exemple
-      _adresses = [
-        {
-          'id': 1,
-          'nom': 'Adresse par défaut',
-          'latitude': 14.69705,
-          'longitude': -17.46050,
-          'type': 'Bureau',
-          'isActive': true,
-        },
-      ];
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -931,70 +1260,53 @@ class _AdressesTabState extends State<_AdressesTab> {
       );
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Adresses de pointage',
-            style: TextStyle(
-              color: Color(0xFF1A365D),
-              fontWeight: FontWeight.bold,
-              fontSize: 24,
-            ),
+    return Stack(
+      children: [
+        SingleChildScrollView(
+          padding: const EdgeInsets.only(
+            top: 16,
+            left: 16,
+            right: 16,
+            bottom: 100,
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Gérez vos adresses de pointage et lieux de travail',
-            style: TextStyle(color: Color(0xFF8A98A8), fontSize: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Liste des adresses
+              ..._adresses
+                  .map((adresse) => _buildAdresseCard(adresse))
+                  .toList(),
+            ],
           ),
-          const SizedBox(height: 24),
+        ),
+        // FloatingActionButton positionné en bas à droite
+        Positioned(
+          bottom: 20,
+          right: 20,
+          child: FloatingActionButton.extended(
+            onPressed: () async {
+              final result = await Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const AddAddressPage()),
+              );
 
-          // Liste des adresses
-          ..._adresses.map((adresse) => _buildAdresseCard(adresse)).toList(),
-
-          const SizedBox(height: 24),
-
-          // Bouton d'ajout
-          Center(
-            child: ElevatedButton.icon(
-              onPressed: () async {
-                final result = await Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const AddAddressPage(),
-                  ),
-                );
-
-                // Recharger les adresses si une nouvelle a été créée
-                if (result == true) {
-                  _loadAdresses();
-                }
-              },
-              icon: const Icon(Icons.add_location, color: Colors.white),
-              label: const Text(
-                'Ajouter une adresse',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFF5C02),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 2,
+              // Recharger les adresses si une nouvelle a été créée
+              if (result == true) {
+                _loadAdresses();
+              }
+            },
+            backgroundColor: const Color(0xFFFF5C02),
+            icon: const Icon(Icons.add_location, color: Colors.white),
+            label: const Text(
+              'Ajouter une adresse',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -1005,13 +1317,6 @@ class _AdressesTabState extends State<_AdressesTab> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

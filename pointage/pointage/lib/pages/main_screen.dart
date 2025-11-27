@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'home/modern_home_page.dart';
-import 'tasks/modern_tasks_page.dart';
 import 'pointage/modern_pointage_page.dart';
 import 'account/modern_account_page.dart';
 import '../widgets/modern_navigation.dart';
+import '../services/AuthService.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({Key? key}) : super(key: key);
@@ -13,14 +12,21 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
+  // Index 0 = Pointage, Index 1 = Mon compte
   int selectedIndex = 0;
+  final _authService = AuthService();
 
   final List<Widget> pages = [
-    const ModernHomePage(),
-    const ModernTasksPage(),
-    const ModernPointagePage(),
-    const ModernAccountPage(),
+    const ModernPointagePage(), // Index 0 - Page de pointage
+    const ModernAccountPage(), // Index 1 - Page compte
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Mettre à jour la date de dernière activité à chaque ouverture de l'app
+    _authService.updateLastActivity();
+  }
 
   @override
   Widget build(BuildContext context) {

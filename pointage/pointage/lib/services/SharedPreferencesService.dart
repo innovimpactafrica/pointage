@@ -27,4 +27,14 @@ class SharedPreferencesService {
     final prefs = await SharedPreferences.getInstance();
     prefs.remove(key);
   }
+
+  Future<void> saveIntValue(String key, int value) async {
+    final prefs = await SharedPreferences.getInstance();
+    prefs.setInt(key, value);
+  }
+
+  Future<int?> getIntValue(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(key);
+  }
 }

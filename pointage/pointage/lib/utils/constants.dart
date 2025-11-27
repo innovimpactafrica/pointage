@@ -14,6 +14,10 @@ class PointageConstants {
   static const String REFRESH_TOKEN = 'newgestionchantier_token';
   static const String USER_DATA = 'pointage_user_data';
   static const String REMEMBER_ME = 'pointage_remember_me';
+  static const String LAST_ACTIVITY_DATE = 'pointage_last_activity_date';
+  
+  // Session
+  static const int SESSION_EXPIRY_DAYS = 20; // Expiration après 20 jours d'inactivité
 
   // Pointage Types
   static const String ARRIVEE = 'ARRIVEE';

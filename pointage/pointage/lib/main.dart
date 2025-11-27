@@ -3,13 +3,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'bloc/auth/auth_bloc.dart';
 import 'bloc/worker/worker_dashboard_bloc.dart';
-import 'bloc/task/task_bloc.dart';
 import 'repository/worker_dashboard_repository.dart';
-import 'repository/task_repository.dart';
 import 'services/worker_service.dart';
-import 'services/task_service.dart';
-// import 'pages/main_screen.dart';
 import 'pages/auth/login_page.dart';
+import 'pages/main_screen.dart';
+import 'pages/splash/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,12 +31,6 @@ class MyApp extends StatelessWidget {
                 ),
               ),
         ),
-        BlocProvider(
-          create:
-              (_) => TaskBloc(
-                taskRepository: TaskRepository(taskService: TaskService()),
-              ),
-        ),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -47,8 +39,15 @@ class MyApp extends StatelessWidget {
           primarySwatch: Colors.orange,
           primaryColor: const Color(0xFFFF5C02),
         ),
-        home: const PointageLoginPage(),
-        routes: {'/login': (context) => const PointageLoginPage()},
+        home: const SplashScreen(),
+        routes: {
+          '/login': (context) => const PointageLoginPage(),
+          '/main': (context) => const MainScreen(),
+        },
+        onGenerateRoute: (settings) {
+          // Gérer les routes avec des arguments si nécessaire
+          return null;
+        },
       ),
     );
   }

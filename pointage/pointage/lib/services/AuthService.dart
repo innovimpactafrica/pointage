@@ -61,13 +61,84 @@ class AuthService {
     }
   }
 
-  // Méthode pour sauvegarder le token
+  // Méthode pour sauvegarder le token et la date de dernière utilisation
   Future<void> saveToken(String token) async {
     await _sharedPreferencesService.saveValue(
       PointageConstants.AUTH_TOKEN,
       token,
     );
+    // Sauvegarder la date de dernière utilisation (timestamp en millisecondes)
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await _sharedPreferencesService.saveIntValue(
+      PointageConstants.LAST_ACTIVITY_DATE,
+      now,
+    );
     print('🔑 Token sauvegardé: ${token.substring(0, 20)}...');
+  }
+
+  // Méthode pour mettre à jour la date de dernière utilisation
+  Future<void> updateLastActivity() async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await _sharedPreferencesService.saveIntValue(
+      PointageConstants.LAST_ACTIVITY_DATE,
+      now,
+    );
+  }
+
+  // Méthode pour vérifier si le token est toujours valide (moins de 20 jours)
+  Future<bool> isTokenValid() async {
+    try {
+      // Vérifier si le token existe
+      final token = await _sharedPreferencesService.getValue(
+        PointageConstants.AUTH_TOKEN,
+      );
+      if (token == null) {
+        return false;
+      }
+
+      // Vérifier la date de dernière utilisation
+      final lastActivityTimestamp = await _sharedPreferencesService.getIntValue(
+        PointageConstants.LAST_ACTIVITY_DATE,
+      );
+      if (lastActivityTimestamp == null) {
+        return false;
+      }
+
+      final lastActivity = DateTime.fromMillisecondsSinceEpoch(
+        lastActivityTimestamp,
+      );
+      final now = DateTime.now();
+      final difference = now.difference(lastActivity);
+
+      // Vérifier si moins de 20 jours se sont écoulés
+      if (difference.inDays >= 20) {
+        // Token expiré, supprimer le token et la date
+        await _sharedPreferencesService.removeValue(
+          PointageConstants.AUTH_TOKEN,
+        );
+        await _sharedPreferencesService.removeValue(
+          PointageConstants.LAST_ACTIVITY_DATE,
+        );
+        return false;
+      }
+
+      // Vérifier si le token est valide en appelant l'API
+      try {
+        await connectedUser();
+        return true;
+      } catch (e) {
+        // Token invalide, supprimer
+        await _sharedPreferencesService.removeValue(
+          PointageConstants.AUTH_TOKEN,
+        );
+        await _sharedPreferencesService.removeValue(
+          PointageConstants.LAST_ACTIVITY_DATE,
+        );
+        return false;
+      }
+    } catch (e) {
+      return false;
+    }
   }
 
   // Méthode existante pour récupérer l'utilisateur connecté
@@ -100,9 +171,13 @@ class AuthService {
       // Même en cas d'erreur, on considère la déconnexion comme réussie
       print('Erreur lors de la déconnexion API: $e');
     } finally {
-      // Toujours supprimer le token du stockage local
+      // Toujours supprimer le token et la date de dernière utilisation
       await _sharedPreferencesService.removeValue(PointageConstants.AUTH_TOKEN);
-      print('🔑 Token supprimé du stockage local');
+      // La date est stockée comme int, on peut utiliser removeValue aussi
+      await _sharedPreferencesService.removeValue(
+        PointageConstants.LAST_ACTIVITY_DATE,
+      );
+      print('🔑 Token et date de dernière utilisation supprimés');
     }
   }
 
@@ -170,6 +245,69 @@ class AuthService {
       };
     } catch (e) {
       return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  // Méthode pour obtenir l'ID utilisateur à partir de l'email et du mot de passe
+  Future<int> getUserIdByEmailAndPassword({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      // Faire un login temporaire pour obtenir l'ID utilisateur
+      final loginResponse = await signIn(email, password);
+
+      if (loginResponse is Map<String, dynamic>) {
+        // Sauvegarder temporairement le token
+        if (loginResponse.containsKey("token")) {
+          await saveToken(loginResponse["token"]);
+        } else if (loginResponse.containsKey("accessToken")) {
+          await saveToken(loginResponse["accessToken"]);
+        }
+
+        // Récupérer les informations utilisateur pour obtenir l'ID
+        final userData = await connectedUser();
+        if (userData is Map<String, dynamic> && userData.containsKey('id')) {
+          return userData['id'] as int;
+        }
+      }
+
+      throw Exception("Impossible de récupérer l'ID utilisateur");
+    } catch (e) {
+      throw Exception("Email ou mot de passe incorrect");
+    }
+  }
+
+  // Méthode pour changer le mot de passe (sans token initial)
+  Future<dynamic> changePassword({
+    required String email,
+    required String password,
+    required String newPassword,
+  }) async {
+    try {
+      // Obtenir l'ID utilisateur via un login temporaire
+      final userId = await getUserIdByEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      // Maintenant changer le mot de passe avec l'ID obtenu
+      Response response = await _dio.put(
+        "/v1/auth/password/change/$userId",
+        data: {
+          "email": email,
+          "password": password,
+          "newPassword": newPassword,
+        },
+      );
+
+      return response.data;
+    } on DioException catch (e) {
+      _handleError(e, "Échec de la modification du mot de passe");
+    } catch (e) {
+      throw Exception(
+        "Erreur inattendue lors de la modification du mot de passe",
+      );
     }
   }
 
