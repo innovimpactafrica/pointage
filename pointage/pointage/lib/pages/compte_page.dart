@@ -133,7 +133,7 @@ class _PointageComptePageState extends State<PointageComptePage> {
                             // Nom de l'utilisateur
                             Text(
                               isLoggedIn
-                                  ? '${currentUser?.prenom ?? ''} ${currentUser?.nom ?? ''}'
+                                  ? '${  currentUser?.photo?? ''} ${currentUser?.nom ?? ''}'
                                   : 'Invité',
                               style: const TextStyle(
                                 fontSize: 24,

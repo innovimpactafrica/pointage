@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:qr_code_scanner/qr_code_scanner.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:geolocator/geolocator.dart';
+
 import '../../models/UserModel.dart';
 import '../../services/AuthService.dart';
 import '../../services/PointageService.dart';
@@ -16,20 +18,45 @@ class QRScannerPage extends StatefulWidget {
 }
 
 class _QRScannerPageState extends State<QRScannerPage> {
-  final GlobalKey qrKey = GlobalKey(debugLabel: 'QR');
-  QRViewController? controller;
-  Barcode? result;
+  final MobileScannerController _scannerController = MobileScannerController();
+  final FlutterTts flutterTts = FlutterTts();
+
   bool isScanning = true;
   bool isLoading = false;
   String? errorMessage;
+
   final _authService = AuthService();
   final _pointageService = PointageService();
   UserModel? _currentUser;
+
+  Future<void> speakText(String text) async {
+    try {
+      // 1. Définir la langue
+      await flutterTts.setLanguage("fr-FR");
+
+      // 2. Définir la vitesse de parole (0.0 à 1.0)
+      await flutterTts.setSpeechRate(0.5);
+
+      // 3. Définir le pitch (tonalité)
+      await flutterTts.setPitch(1.0);
+
+      // 4. Lancer la synthèse vocale
+      await flutterTts.speak(text);
+    } catch (e) {
+      print("Erreur TTS : $e");
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+  }
+
+  @override
+  void dispose() {
+    _scannerController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUserData() async {
@@ -41,42 +68,39 @@ class _QRScannerPageState extends State<QRScannerPage> {
         });
       }
     } catch (e) {
-      print('❌ Erreur lors du chargement des données: $e');
+      print('❌ Erreur chargement utilisateur: $e');
     }
   }
 
-  @override
-  void dispose() {
-    controller?.dispose();
-    super.dispose();
-  }
+  /// =============================
+  /// 📸 QR CODE DÉTECTÉ
+  /// =============================
+  void _onDetect(BarcodeCapture capture) {
+    if (!isScanning) return;
 
-  void _onQRViewCreated(QRViewController controller) {
-    this.controller = controller;
-    controller.scannedDataStream.listen((scanData) {
-      if (isScanning && scanData.code != null) {
-        setState(() {
-          result = scanData;
-          isScanning = false;
-        });
-        _handleQRCode(scanData.code!);
-      }
+    final barcode = capture.barcodes.first;
+    final qrCode = barcode.rawValue;
+
+    if (qrCode == null || qrCode.isEmpty) return;
+
+    setState(() {
+      isScanning = false;
     });
+
+    _handleQRCode(qrCode);
   }
 
+  /// =============================
+  /// 🚀 TRAITEMENT DU QR CODE
+  /// =============================
   Future<void> _handleQRCode(String qrCode) async {
-    print('🚀 [QRScanner] ===== DÉBUT DU SCAN QR CODE =====');
-    print('🔍 [QRScanner] Code QR scanné: "$qrCode"');
-    print('🔍 [QRScanner] Longueur du code: ${qrCode.length}');
-    print('🔍 [QRScanner] Type du code: ${qrCode.runtimeType}');
+    print('🚀 ===== DÉBUT SCAN QR =====');
+    print('📱 QR Code: $qrCode');
 
     if (_currentUser == null) {
-      print('❌ [QRScanner] ERREUR: Utilisateur non trouvé');
       _showError('Utilisateur non trouvé');
       return;
     }
-
-    print('✅ [QRScanner] Utilisateur trouvé: ID=${_currentUser!.id}');
 
     setState(() {
       isLoading = true;
@@ -84,158 +108,93 @@ class _QRScannerPageState extends State<QRScannerPage> {
     });
 
     try {
-      print('📍 [QRScanner] Récupération de la position GPS...');
-
-      // Récupérer la position GPS
+      // 📍 GPS
       final position = await _getCurrentPosition();
-
       if (position == null) {
-        print('❌ [QRScanner] ERREUR: Impossible de récupérer la position GPS');
-        _showError('Impossible de récupérer votre position GPS');
+        _showError('Impossible de récupérer la position GPS');
         return;
       }
 
-      print('✅ [QRScanner] Position GPS récupérée:');
-      print('   📍 Latitude: ${position.latitude}');
-      print('   📍 Longitude: ${position.longitude}');
-      print('   📍 Précision: ${position.accuracy}m');
-      print('   📍 Timestamp: ${position.timestamp}');
-
-      print('🔄 [QRScanner] Préparation de l\'appel API...');
-      print('   👤 User ID: ${_currentUser!.id}');
-      print('   📱 QR Code: $qrCode');
-      print('   📍 Latitude: ${position.latitude}');
-      print('   📍 Longitude: ${position.longitude}');
-
-      // Déterminer le type de pointage (entrée ou sortie)
-      print('🔍 [QRScanner] Détermination du type de pointage...');
-      final statutPointage = await _pointageService.getStatutPointageDuJour(
+      // 🔍 Type de pointage
+      final statut = await _pointageService.getStatutPointageDuJour(
         _currentUser!.id,
       );
+
       final typePointage =
-          statutPointage['peutArrivee']
+          statut['peutArrivee']
               ? PointageConstants.ARRIVEE
               : PointageConstants.DEPART;
-      final typePointageText =
-          statutPointage['peutArrivee'] ? 'Entrée' : 'Sortie';
 
-      print('📋 [QRScanner] Type de pointage déterminé: $typePointageText');
-      print(
-        '📋 [QRScanner] Peut pointer arrivée: ${statutPointage['peutArrivee']}',
-      );
-      print(
-        '📋 [QRScanner] Peut pointer départ: ${statutPointage['peutDepart']}',
-      );
-
-      // Effectuer le pointage avec le QR code scanné
-      print('🌐 [QRScanner] Appel de l\'API de pointage...');
+      final typeLabel = statut['peutArrivee'] ? 'Entrée' : 'Sortie';
+      final encodedQrCode = Uri.encodeComponent(qrCode);
+      // 🌐 API
       final result = await _pointageService.enregistrerPointage(
         userId: _currentUser!.id,
         typePointage: typePointage,
         latitude: position.latitude,
         longitude: position.longitude,
-        qrCodeText: qrCode, // Utiliser le QR code scanné directement
+        qrCodeText: qrCode,
         commentaire: 'Pointage via QR Code: $qrCode',
       );
 
-      print('📥 [QRScanner] Réponse de l\'API reçue:');
-      print('   ✅ Success: ${result['success']}');
-      print('   📝 Message: ${result['message']}');
-      print('   📊 Data: ${result['data']}');
-
       if (result['success']) {
-        print(
-          '🎉 [QRScanner] SUCCÈS: $typePointageText effectuée avec succès !',
-        );
-        _showSuccess('$typePointageText effectuée avec succès !');
+        _showSuccess(result['message']);
+      //  speakText(result['message']);
+
       } else {
-        print(
-          '❌ [QRScanner] ÉCHEC: ${result['message'] ?? 'Erreur lors du pointage'}',
-        );
-        _showError(result['message'] ?? 'Erreur lors du pointage');
+        print(result);
+       _showError(result['message'] ?? 'Erreur de pointage');
+
       }
     } catch (e) {
-      print('💥 [QRScanner] EXCEPTION: ${e.toString()}');
-      print('💥 [QRScanner] Stack trace: ${StackTrace.current}');
-      _showError('Erreur: ${e.toString()}');
+      print('💥 EXCEPTION: $e');
+     // _showError(e.toString());
     } finally {
       setState(() {
         isLoading = false;
       });
-      print('🏁 [QRScanner] ===== FIN DU SCAN QR CODE =====');
     }
   }
 
-  /// Récupérer la position GPS
+  /// =============================
+  /// 📍 GPS
+  /// =============================
   Future<Position?> _getCurrentPosition() async {
     try {
-      print('📍 [GPS] Vérification des permissions de localisation...');
-
-      // Vérifier les permissions
       LocationPermission permission = await Geolocator.checkPermission();
-      print('📍 [GPS] Permission actuelle: $permission');
 
       if (permission == LocationPermission.denied) {
-        print('📍 [GPS] Permission refusée, demande d\'autorisation...');
         permission = await Geolocator.requestPermission();
-        print('📍 [GPS] Nouvelle permission: $permission');
-
-        if (permission == LocationPermission.denied) {
-          print('❌ [GPS] Permission définitivement refusée');
-          return null;
-        }
       }
 
-      if (permission == LocationPermission.deniedForever) {
-        print('❌ [GPS] Permission définitivement refusée pour toujours');
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
         return null;
       }
 
-      print('✅ [GPS] Permission accordée, récupération de la position...');
-      print('📍 [GPS] Précision demandée: LocationAccuracy.high');
-
-      // Récupérer la position
-      final position = await Geolocator.getCurrentPosition(
+      return await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
-        timeLimit: Duration(seconds: 15), // Timeout de 15 secondes
+        timeLimit: const Duration(seconds: 15),
       );
-
-      print('✅ [GPS] Position récupérée avec succès:');
-      print('   📍 Latitude: ${position.latitude}');
-      print('   📍 Longitude: ${position.longitude}');
-      print('   📍 Précision: ${position.accuracy}m');
-      print('   📍 Altitude: ${position.altitude}m');
-      print('   📍 Vitesse: ${position.speed}m/s');
-      print('   📍 Timestamp: ${position.timestamp}');
-
-      return position;
     } catch (e) {
-      print('💥 [GPS] EXCEPTION lors de la récupération de la position: $e');
-      print('💥 [GPS] Type d\'erreur: ${e.runtimeType}');
-
-      if (e.toString().contains('LocationServiceDisabledException')) {
-        print('📍 [GPS] Service de localisation désactivé');
-      } else if (e.toString().contains('PermissionDeniedException')) {
-        print('📍 [GPS] Permission de localisation refusée');
-      } else if (e.toString().contains('TimeoutException')) {
-        print('📍 [GPS] Timeout lors de la récupération de la position');
-      }
-
+      print('❌ GPS error: $e');
       return null;
     }
   }
 
-  /// Afficher le message de succès
+  /// =============================
+  /// ✅ SUCCÈS
+  /// =============================
   void _showSuccess(String message) {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder:
-          (context) => AlertDialog(
+          (_) => AlertDialog(
             title: const Row(
               children: [
-                Icon(Icons.check_circle, color: Colors.green, size: 28),
-                SizedBox(width: 12),
+                Icon(Icons.check_circle, color: Colors.green),
+                SizedBox(width: 10),
                 Text('Succès'),
               ],
             ),
@@ -243,22 +202,22 @@ class _QRScannerPageState extends State<QRScannerPage> {
             actions: [
               ElevatedButton(
                 onPressed: () {
-                  Navigator.of(context).pop(); // Fermer le dialog
-                  Navigator.of(
-                    context,
-                  ).pop(true); // Retourner true pour indiquer le succès
+                  Navigator.pop(context);
+                  Navigator.pop(context, true);
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFFF5C02),
-                  foregroundColor: Colors.white,
                 ),
-                child: const Text('OK'),
+                child: Text('OK', style: TextStyle(color: Colors.white)),
               ),
             ],
           ),
     );
   }
 
+  /// =============================
+  /// ❌ ERREUR
+  /// =============================
   void _showError(String message) {
     setState(() {
       errorMessage = message;
@@ -267,11 +226,11 @@ class _QRScannerPageState extends State<QRScannerPage> {
     showDialog(
       context: context,
       builder:
-          (context) => AlertDialog(
+          (_) => AlertDialog(
             title: const Row(
               children: [
-                Icon(Icons.error, color: Colors.red, size: 28),
-                SizedBox(width: 12),
+                Icon(Icons.error, color: Colors.red),
+                SizedBox(width: 10),
                 Text('Erreur'),
               ],
             ),
@@ -279,30 +238,35 @@ class _QRScannerPageState extends State<QRScannerPage> {
             actions: [
               TextButton(
                 onPressed: () {
-                  Navigator.of(context).pop();
+                  Navigator.pop(context);
                   setState(() {
                     isScanning = true;
                     errorMessage = null;
                   });
                 },
-                child: const Text('Réessayer'),
+                child: Text('Réessayer', style: TextStyle(color: Colors.white)),
               ),
               ElevatedButton(
                 onPressed: () {
-                  Navigator.of(context).pop();
-                  Navigator.of(context).pop();
+                  Navigator.pop(context);
+                  Navigator.pop(context);
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFFF5C02),
-                  foregroundColor: Colors.white,
                 ),
-                child: const Text('Retour'),
+                child: const Text(
+                  'Retour',
+                  style: TextStyle(color: Colors.white),
+                ),
               ),
             ],
           ),
     );
   }
 
+  /// =============================
+  /// 🎨 UI
+  /// =============================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -311,177 +275,44 @@ class _QRScannerPageState extends State<QRScannerPage> {
         backgroundColor: Colors.black,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          icon: const Icon(Icons.close, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: const Text(
-          'Scanner QR Code',
+          'Pointer via QR code',
           style: TextStyle(
             color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
           ),
         ),
         centerTitle: true,
       ),
+
       body: Stack(
         children: [
-          // Scanner QR Code
-          QRView(
-            key: qrKey,
-            onQRViewCreated: _onQRViewCreated,
-            overlay: QrScannerOverlayShape(
-              borderColor: const Color(0xFFFF5C02),
-              borderRadius: 20,
-              borderLength: 30,
-              borderWidth: 10,
-              cutOutSize: 250,
-            ),
-          ),
+          MobileScanner(controller: _scannerController, onDetect: _onDetect),
 
-          // Instructions
-          Positioned(
-            top: 50,
-            left: 20,
-            right: 20,
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.7),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                children: [
-                  const Icon(
-                    Icons.qr_code_scanner,
-                    color: Color(0xFFFF5C02),
-                    size: 32,
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Positionnez le QR Code dans le cadre',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Le scan se fera automatiquement',
-                    style: TextStyle(color: Colors.white70, fontSize: 14),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: const BoxDecoration(
-                      color: Color(
-                        0x33FF5C02,
-                      ), // Version constante de withOpacity(0.2)
-                      borderRadius: BorderRadius.all(Radius.circular(8)),
-                      border: Border.fromBorderSide(
-                        BorderSide(color: Color(0xFFFF5C02), width: 1),
-                      ),
-                    ),
-                    child: const Text(
-                      'Scannez n\'importe quel QR Code',
-                      style: TextStyle(
-                        color: Color(0xFFFF5C02),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ],
-              ),
+          if (isLoading)
+            const Center(
+              child: CircularProgressIndicator(color: Color(0xFFFF5C02)),
             ),
-          ),
 
-          // Bouton de retour manuel
-          Positioned(
-            bottom: 100,
-            left: 20,
-            right: 20,
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.7),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                children: [
-                  if (isLoading) ...[
-                    const CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        Color(0xFFFF5C02),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Traitement en cours...',
-                      style: TextStyle(color: Colors.white, fontSize: 16),
-                    ),
-                  ] else if (errorMessage != null) ...[
-                    const Icon(
-                      Icons.error_outline,
-                      color: Colors.red,
-                      size: 32,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      errorMessage!,
-                      style: const TextStyle(color: Colors.red, fontSize: 14),
-                      textAlign: TextAlign.center,
-                    ),
-                  ] else ...[
-                    const Icon(
-                      Icons.flash_on,
-                      color: Color(0xFFFF5C02),
-                      size: 32,
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Scanner actif',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-
-          // Bouton retour
-          Positioned(
+          /* Positioned(
             bottom: 30,
             left: 20,
             right: 20,
             child: ElevatedButton.icon(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.arrow_back_ios_rounded,color: Colors.white,),
+              label: Text('Retour',style: TextStyle(color: Colors.white),),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFF5C02),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              icon: const Icon(Icons.arrow_back),
-              label: const Text(
-                'Retour',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                padding:
+                const EdgeInsets.symmetric(vertical: 16),
               ),
             ),
-          ),
+          ),*/
         ],
       ),
     );

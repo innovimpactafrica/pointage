@@ -1,4 +1,4 @@
-package com.example.pointage
+package com.innovimpactafrica.ukubhalisa
 
 import io.flutter.embedding.android.FlutterActivity
 

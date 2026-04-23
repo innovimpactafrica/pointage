@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pretty_qr_code/pretty_qr_code.dart';
 import '../../services/AuthService.dart';
 import '../../models/UserModel.dart';
 import '../../models/PointageModel.dart';
@@ -56,6 +57,7 @@ class _ModernPointagePageState extends State<ModernPointagePage> {
             _PointageHeaderTabs(
               selected: _selectedTab,
               onChanged: (i) => setState(() => _selectedTab = i),
+              currentUser: _currentUser,
             ),
             Expanded(
               child:
@@ -63,7 +65,7 @@ class _ModernPointagePageState extends State<ModernPointagePage> {
                       ? _PointageDuJourCard(onVoirPlus: _goToHistorique)
                       : _selectedTab == 1
                       ? _HistoriqueTab(userId: _currentUser?.id)
-                      : const _AdressesTab(),
+                      :  _AdressesTab(_currentUser),
             ),
           ],
         ),
@@ -98,10 +100,10 @@ class _AppHeader extends StatelessWidget {
           children: [
             // Barre supérieure avec logo
             const Text(
-              'Pointage',
+              'UKUBHALISA',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 32,
+                fontSize: 18,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -185,8 +187,13 @@ class _AppHeader extends StatelessWidget {
 class _PointageHeaderTabs extends StatelessWidget {
   final int selected;
   final ValueChanged<int> onChanged;
+  final UserModel? currentUser;
 
-  const _PointageHeaderTabs({required this.selected, required this.onChanged});
+  const _PointageHeaderTabs({
+    required this.selected,
+    required this.onChanged,
+    required this.currentUser,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -238,12 +245,13 @@ class _PointageHeaderTabs extends StatelessWidget {
                       const SizedBox(height: 8),
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
-                        height: 4,
-                        width: 40,
+                        height: 1,
+                        margin: EdgeInsets.only(left: 30, right: 30),
+                        //   width: 100,
                         decoration: BoxDecoration(
                           color:
                               selected == 0 ? Colors.white : Colors.transparent,
-                          borderRadius: BorderRadius.circular(2),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                       ),
                     ],
@@ -284,8 +292,8 @@ class _PointageHeaderTabs extends StatelessWidget {
                       const SizedBox(height: 8),
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
-                        height: 4,
-                        width: 40,
+                        height: 1,
+                        margin: EdgeInsets.only(left: 30, right: 30),
                         decoration: BoxDecoration(
                           color:
                               selected == 1 ? Colors.white : Colors.transparent,
@@ -296,52 +304,56 @@ class _PointageHeaderTabs extends StatelessWidget {
                   ),
                 ),
               ),
-              Flexible(
-                child: GestureDetector(
-                  onTap: () => onChanged(2),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.location_on,
-                            color:
-                                selected == 2
-                                    ? Colors.white
-                                    : const Color(0xFFBFC5D2),
-                            size: 22,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Adresses',
-                            style: TextStyle(
+
+              if ( currentUser!=null && (currentUser!.profil == "PROMOTEUR"|| currentUser!.profil == "SITE_MANAGER"))
+                Flexible(
+                  child: GestureDetector(
+                    onTap: () => onChanged(2),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.location_on,
                               color:
                                   selected == 2
                                       ? Colors.white
                                       : const Color(0xFFBFC5D2),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
+                              size: 22,
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        height: 4,
-                        width: 40,
-                        decoration: BoxDecoration(
-                          color:
-                              selected == 2 ? Colors.white : Colors.transparent,
-                          borderRadius: BorderRadius.circular(2),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Adresses',
+                              style: TextStyle(
+                                color:
+                                    selected == 2
+                                        ? Colors.white
+                                        : const Color(0xFFBFC5D2),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 8),
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          height: 4,
+                          width: 40,
+                          decoration: BoxDecoration(
+                            color:
+                                selected == 2
+                                    ? Colors.white
+                                    : Colors.transparent,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
         ],
@@ -499,28 +511,54 @@ class _PointageDuJourCardState extends State<_PointageDuJourCard> {
           Center(
             child: Container(
               width: MediaQuery.of(context).size.width * 0.92,
-              padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 0),
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 0),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: Colors.grey, width: .2),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    width: 90,
-                    height: 90,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF5F7FA),
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: const Icon(
-                      Icons.qr_code_2,
-                      color: Color(0xFF1A365D),
-                      size: 56,
+                  InkWell(
+                    onTap: () async {
+                      final result = await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder:
+                              (context) =>
+                                  QRScannerPage(workerId: _currentUser!.id),
+                        ),
+                      );
+
+                      // Recharger les données après le pointage
+                      if (result == true) {
+                        _loadTodayPointage();
+                      }
+                    },
+                    child: Container(
+                      width: 150,
+                      height: 150,
+                      padding: EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: Colors.orange),
+                      ),
+                      child: PrettyQrView.data(
+                        data: _currentUser!.qrcode,
+                        decoration: const PrettyQrDecoration(
+                          image: PrettyQrDecorationImage(
+                            image: AssetImage('assets/images/utext.png'),
+                            scale: .4,
+                          ),
+
+                          quietZone: PrettyQrQuietZone.zero,
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 24),
+
+                  const SizedBox(height: 10),
                   Text(
                     _lastPointageTime == '--:--'
                         ? "Pas encore pointé aujourd'hui"
@@ -531,8 +569,9 @@ class _PointageDuJourCardState extends State<_PointageDuJourCard> {
                       fontSize: 16,
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  SizedBox(
+                  const SizedBox(height: 10),
+
+                  /*   SizedBox(
                     width: 260,
                     height: 56,
                     child: ElevatedButton.icon(
@@ -571,7 +610,7 @@ class _PointageDuJourCardState extends State<_PointageDuJourCard> {
                         ),
                       ),
                     ),
-                  ),
+                  ),*/
                 ],
               ),
             ),
@@ -1172,7 +1211,8 @@ class _HistoriqueTabState extends State<_HistoriqueTab> {
 }
 
 class _AdressesTab extends StatefulWidget {
-  const _AdressesTab();
+  final UserModel? currentUser;
+  _AdressesTab(this.currentUser);
 
   @override
   State<_AdressesTab> createState() => _AdressesTabState();
@@ -1197,10 +1237,8 @@ class _AdressesTabState extends State<_AdressesTab> {
     });
 
     try {
-      print('🔄 [AdressesTab] Chargement des adresses depuis l\'API...');
-
       // Utiliser l'ID du projet 22 (vous pouvez le rendre dynamique plus tard)
-      const int projectId = 22;
+       int projectId = widget.currentUser!.company!.id;
       final adressesApi = await _pointageService.getAdressesPointage(projectId);
 
       // Transformer les données de l'API pour correspondre à notre format d'affichage

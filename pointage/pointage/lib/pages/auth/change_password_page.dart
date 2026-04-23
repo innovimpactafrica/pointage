@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pointage/bloc/auth/auth_bloc.dart';
 import 'package:pointage/bloc/auth/auth_event.dart';
 import 'package:pointage/bloc/auth/auth_state.dart';
+import 'package:pointage/utils/HexColor.dart';
 import '../../utils/constants.dart';
 import 'login_page.dart';
 
@@ -116,8 +117,8 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                     children: [
                       Center(
                         child: Image.asset(
-                          'assets/images/image.png',
-                          width: 80,
+                          'assets/images/utext.png',
+                          width: 150,
                           height: 80,
                           fit: BoxFit.contain,
                         ),
@@ -235,7 +236,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                         child: ElevatedButton(
                           onPressed: isLoading ? null : _changePassword,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF007BFF),
+                            backgroundColor: HexColor(PointageConstants.PRIMARY_COLOR),
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(100),

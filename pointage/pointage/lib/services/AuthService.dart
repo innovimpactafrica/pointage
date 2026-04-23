@@ -293,7 +293,7 @@ class AuthService {
 
       // Maintenant changer le mot de passe avec l'ID obtenu
       Response response = await _dio.put(
-        "/v1/auth/password/change/$userId",
+        "/v1/auth/cahnge-password",
         data: {
           "email": email,
           "password": password,

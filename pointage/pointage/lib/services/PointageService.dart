@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:geolocator/geolocator.dart';
 import '../models/PointageModel.dart';
 import '../utils/constants.dart';
@@ -81,41 +82,37 @@ class PointageService {
       print('   🔗 Real URL: ${response.realUri}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
+        
         print('✅ [PointageService] Pointage enregistré avec succès');
         print(
           '🏁 [PointageService] ===== FIN ENREGISTREMENT POINTAGE (SUCCÈS) =====',
         );
+
         return {
           'success': true,
-          'message': 'Check-in enregistré avec succès',
+          'message': response.data,
           'data': response.data,
         };
       } else {
-        print(
-          '❌ [PointageService] Erreur lors de l\'enregistrement: ${response.statusCode}',
-        );
-        print(
-          '🏁 [PointageService] ===== FIN ENREGISTREMENT POINTAGE (ÉCHEC) =====',
-        );
-        return {'success': false, 'message': 'Erreur lors du pointage'};
+      
+        return {'success': false, 'message':  response.data};
       }
-    } catch (e) {
-      print('💥 [PointageService] EXCEPTION lors de l\'enregistrement: $e');
-      print('💥 [PointageService] Type d\'erreur: ${e.runtimeType}');
-      if (e.toString().contains('SocketException')) {
-        print('🌐 [PointageService] Problème de connexion réseau');
-      } else if (e.toString().contains('TimeoutException')) {
-        print('⏰ [PointageService] Timeout de la requête');
-      } else if (e.toString().contains('FormatException')) {
-        print('📝 [PointageService] Erreur de format de données');
+    } on DioError catch (e){
+      String errorMsg = 'Erreur lors du pointage';
+      if (e.response != null && e.response?.data != null) {
+        if (e.response?.data is Map<String, dynamic>) {
+          errorMsg = e.response?.data['message'] ?? errorMsg;
+        } else if (e.response?.data is String) {
+          errorMsg = e.response?.data;
+        }
+      } else if (e.type == DioErrorType.connectionTimeout) {
+        errorMsg = 'Timeout de la requête';
+      } else if (e.type == DioErrorType.unknown) {
+        errorMsg = 'Problème de connexion réseau';
       }
-      print(
-        '🏁 [PointageService] ===== FIN ENREGISTREMENT POINTAGE (EXCEPTION) =====',
-      );
-      return {
-        'success': false,
-        'message': 'Erreur lors du pointage: ${e.toString()}',
-      };
+
+      print('🏁 [PointageService] ===== FIN ENREGISTREMENT POINTAGE (EXCEPTION) =====');
+      return {'success': false, 'message': errorMsg};
     }
   }
 

@@ -147,7 +147,7 @@ class _SplashScreenState extends State<SplashScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             // Icône avec animation de scale et fade
-            FadeTransition(
+           /* FadeTransition(
               opacity: _iconFadeAnimation,
               child: ScaleTransition(
                 scale: _iconScaleAnimation,
@@ -158,7 +158,7 @@ class _SplashScreenState extends State<SplashScreen>
                   fit: BoxFit.contain,
                 ),
               ),
-            ),
+            ),*/
             
             // Espacement
             const SizedBox(height: 40),

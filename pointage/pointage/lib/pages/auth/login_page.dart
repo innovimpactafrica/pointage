@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pointage/services/AuthService.dart';
+import 'package:pointage/utils/HexColor.dart';
 import '../main_screen.dart';
 import '../../utils/constants.dart';
 import 'change_password_page.dart';
@@ -129,6 +130,9 @@ class _PointageLoginPageState extends State<PointageLoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final fieldWidth = screenWidth > 350 ? 291.0 : screenWidth - 60;
+
     return PopScope(
       canPop: false,
       child: Scaffold(
@@ -154,15 +158,15 @@ class _PointageLoginPageState extends State<PointageLoginPage> {
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(),
                         child: Image.asset(
-                          'assets/images/image.png',
-                          width: 80,
+                          'assets/images/utext.png',
+                          width: 200,
                           height: 80,
                           fit: BoxFit.contain,
                         ),
                       ),
                     ),
-
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 8),
+                /*    const SizedBox(height: 32),
 
                     // Titre "Welcome back!"
                     const Text(
@@ -175,7 +179,7 @@ class _PointageLoginPageState extends State<PointageLoginPage> {
                       ),
                     ),
 
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 8),*/
 
                     // Sous-titre
                     const Text(
@@ -220,6 +224,7 @@ class _PointageLoginPageState extends State<PointageLoginPage> {
 
                     // Bouton Sign in
                     Container(
+                      width:  fieldWidth ,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(100),
                         boxShadow: [
@@ -233,7 +238,7 @@ class _PointageLoginPageState extends State<PointageLoginPage> {
                       child: ElevatedButton(
                         onPressed: _isLoading ? null : _login,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF007BFF),
+                          backgroundColor: HexColor(PointageConstants.PRIMARY_COLOR),
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(100),
@@ -253,7 +258,7 @@ class _PointageLoginPageState extends State<PointageLoginPage> {
                                   ),
                                 )
                                 : const Text(
-                                  'Sign in',
+                                  'Se connecter',
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
@@ -270,7 +275,7 @@ class _PointageLoginPageState extends State<PointageLoginPage> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          "Mot de passe oublié? ",
+                          "Voulez vous ? ",
                           style: TextStyle(
                             fontSize: 14,
                             color: const Color(0xFF757575),
@@ -286,10 +291,10 @@ class _PointageLoginPageState extends State<PointageLoginPage> {
                             );
                           },
                           child: Text(
-                            'Forgot password',
+                            'Changer mot de passe',
                             style: TextStyle(
                               fontSize: 14,
-                              color: const Color(0xFF007BFF),
+                              color: Colors.deepOrange,
                               fontWeight: FontWeight.w600,
                             ),
                           ),

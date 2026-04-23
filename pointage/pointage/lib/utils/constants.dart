@@ -1,6 +1,7 @@
 class PointageConstants {
   // API Endpoints - Utilise les mêmes que le profil ouvrier
-  static const String BASE_URL = 'https://wakana.online/api';
+  static const String BASE_URL = 'https://innov.sn/pointage/api';
+  static const String BASE_URL_FILE = 'https://innov.sn/pointage/repertoire_u/';
   static const String LOGIN_ENDPOINT = '/v1/auth/signin';
   static const String REGISTER_ENDPOINT = '/v1/auth/signup';
   static const String USER_PROFILE_ENDPOINT = '/v1/user/me';
@@ -45,4 +46,8 @@ class PointageConstants {
   // Validation
   static const int MIN_PASSWORD_LENGTH = 6;
   static const String EMAIL_REGEX = r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$';
+
+
+
+  static const String PRIMARY_COLOR="#123556";
 }

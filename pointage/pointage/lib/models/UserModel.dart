@@ -1,9 +1,12 @@
 import 'package:pointage/models/CompanyModel.dart';
 
+import 'AssignedCompanyModel.dart';
+
 class UserModel {
   final int id;
   final String nom;
   final String prenom;
+  final String? poste;
   final String email;
   final String password;
   final String adress;
@@ -12,7 +15,8 @@ class UserModel {
   final bool activated;
   final bool notifiable;
   final String telephone;
-  final CompanyModel? company;
+
+  final AssignedCompanyModel? company;
   final DateTime createdAt;
   final double funds;
   final double note;
@@ -22,13 +26,17 @@ class UserModel {
   final bool credentialsNonExpired;
   final bool accountNonLocked;
   final String username;
+
   // final List<AuthorityModel> authorities;
   final bool enabled;
+  final String qrcode;
 
   UserModel({
     required this.id,
     required this.nom,
     required this.prenom,
+    required this.poste,
+
     required this.email,
     required this.password,
     required this.adress,
@@ -50,6 +58,7 @@ class UserModel {
     required this.username,
     // required this.authorities,
     required this.enabled,
+    required this.qrcode,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -57,6 +66,8 @@ class UserModel {
       id: json['id'],
       nom: json['nom'] ?? '',
       prenom: json['prenom'] ?? '',
+      poste: json['poste'] ?? 'Agent',
+
       email: json['email'] ?? '',
       password: json['password'] ?? '',
       adress: json['adress'] ?? '',
@@ -70,8 +81,8 @@ class UserModel {
       //         .map((e) => SubscriptionModel.fromJson(e))
       //         .toList(),
       company:
-          json['company'] != null
-              ? CompanyModel.fromJson(json['company'])
+          json['assignedCompany'] != null
+              ? AssignedCompanyModel.fromJson(json['assignedCompany'])
               : null,
 
       createdAt:
@@ -97,6 +108,7 @@ class UserModel {
       //     .map((e) => AuthorityModel.fromJson(e))
       //     .toList(),
       enabled: json['enabled'] ?? true,
+      qrcode: json['qrcode'] ?? '',
     );
   }
 
@@ -127,6 +139,8 @@ class UserModel {
       "username": username,
       // "authorities": authorities.map((e) => e.toJson()).toList(),
       "enabled": enabled,
+      "qrcode": qrcode,
+      "poste":poste
     };
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:pointage/utils/constants.dart';
 import '../../services/AuthService.dart';
 import '../../models/UserModel.dart';
 import '../../utils/HexColor.dart';
@@ -199,7 +200,7 @@ class _ModernAccountPageState extends State<ModernAccountPage> {
                             _currentUser?.photo != null &&
                                     _currentUser!.photo!.isNotEmpty
                                 ? Image.network(
-                                  _currentUser!.photo!,
+                                  PointageConstants.BASE_URL_FILE+_currentUser!.photo!,
                                   fit: BoxFit.cover,
                                   width: 94,
                                   height: 94,
@@ -229,8 +230,9 @@ class _ModernAccountPageState extends State<ModernAccountPage> {
                     // Nom de l'entreprise
                     Text(
                       isLoggedIn
-                          ? (_currentUser?.profil ?? 'Entreprise')
+                          ? (_currentUser?.poste ?? 'Entreprise')
                           : 'Non connecté',
+
                       style: TextStyle(
                         fontSize: 16,
                         color: HexColor('#797979'),
